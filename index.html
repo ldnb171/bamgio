@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đo Tốc Độ Xe 2 Mốc A-B</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    body { font-family: -apple-system, sans-serif; text-align: center; margin: 0; padding: 20px; background: #121212; color: #fff; }
+    h2 { margin-bottom: 5px; }
+    .status { margin-bottom: 15px; font-weight: bold; }
+    .connected { color: #4caf50; }
+    .disconnected { color: #f44336; }
+    input { padding: 8px; font-size: 16px; border-radius: 6px; border: 1px solid #444; width: 80px; text-align: center; background: #222; color: #fff; }
+    .btn { width: 100%; max-width: 320px; height: 120px; font-size: 24px; font-weight: bold; border-radius: 12px; border: none; cursor: pointer; margin: 15px auto; display: block; }
+    .btn-start { background: #007bff; color: white; }
+    .btn-start:active { background: #0056b3; }
+    .btn-stop { background: #e53935; color: white; }
+    .btn-stop:active { background: #b71c1c; }
+    .flash { animation: blink 0.4s infinite alternate; }
+    @keyframes blink { 0% { background: #ffebee; color: #d32f2f; } 100% { background: #d32f2f; color: #fff; } }
+    .result-box { padding: 15px; margin: 15px auto; max-width: 320px; border-radius: 8px; background: #222; font-size: 20px; font-weight: bold; }
+    table { width: 100%; max-width: 360px; margin: 10px auto; border-collapse: collapse; font-size: 14px; }
+    th, td { border: 1px solid #444; padding: 6px; text-align: center; }
+    th { background: #333; }
+  </style>
+</head>
+<body>
+
+  <h2>ĐO VẬN TỐC 2 MỐC (A - B)</h2>
+  <div id="status" class="status disconnected">Chưa kết nối</div>
+
+  <!-- Chọn vai trò -->
+  <div id="role-selection">
+    <button onclick="setupRole('A')">Tôi là Máy A (Vào mốc)</button>
+    <button onclick="setupRole('B')">Tôi là Máy B (Ra mốc)</button>
+  </div>
+
+  <!-- Giao diện kết nối -->
+  <div id="connect-panel" style="display:none; margin: 15px 0;">
+    <div id="info-a" style="display:none;">
+      <p>Mã của bạn: <b id="peer-id" style="color:#00e5ff;">...</b></p>
+      <p>Đưa mã này cho Máy B nhập vào.</p>
+    </div>
+    <div id="info-b" style="display:none;">
+      <input type="text" id="target-id" placeholder="Nhập mã A" style="width:140px;">
+      <button onclick="connectToA()">Kết nối tới A</button>
+    </div>
+  </div>
+
+  <!-- Giao diện thao tác -->
+  <div id="app-panel" style="display:none;">
+    <div style="margin-bottom: 10px;">
+      Khoảng cách s = <input type="number" id="distance" value="50"> mét
+    </div>
+
+    <!-- Nút cho Máy A -->
+    <button id="btnA" class="btn btn-start" style="display:none;" onclick="triggerStart()">
+      BẮT ĐẦU (XE VÀO)
+    </button>
+
+    <!-- Giao diện cho Máy B -->
+    <div id="panelB" style="display:none;">
+      <button id="btnB" class="btn btn-stop" onclick="triggerStop()">
+        KẾT THÚC (XE QUA)
+      </button>
+
+      <div id="result" class="result-box">Chờ tín hiệu...</div>
+
+      <h3>Lịch sử 10 lần gần nhất</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Thời gian (s)</th>
+            <th>Vận tốc (km/h)</th>
+          </tr>
+        </thead>
+        <tbody id="log-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  let peer = null;
+  let conn = null;
+  let myRole = '';
+  let startTime = null;
+  let logs = [];
+
+  function setupRole(role) {
+    myRole = role;
+    document.getElementById('role-selection').style.display = 'none';
+    document.getElementById('connect-panel').style.display = 'block';
+
+    peer = new Peer();
+
+    peer.on('open', (id) => {
+      if (role === 'A') {
+        document.getElementById('info-a').style.display = 'block';
+        document.getElementById('peer-id').innerText = id;
+        peer.on('connection', (c) => {
+          conn = c;
+          handleConnection();
+        });
+      } else {
+        document.getElementById('info-b').style.display = 'block';
+      }
+    });
+  }
+
+  function connectToA() {
+    const targetId = document.getElementById('target-id').value.trim();
+    if (!targetId) return alert('Vui lòng nhập ID Máy A');
+    conn = peer.connect(targetId);
+    handleConnection();
+  }
+
+  function handleConnection() {
+    conn.on('open', () => {
+      document.getElementById('status').innerText = 'Đã kết nối thành công!';
+      document.getElementById('status').className = 'status connected';
+      document.getElementById('connect-panel').style.display = 'none';
+      document.getElementById('app-panel').style.display = 'block';
+
+      if (myRole === 'A') {
+        document.getElementById('btnA').style.display = 'block';
+      } else {
+        document.getElementById('panelB').style.display = 'block';
+      }
+    });
+
+    conn.on('data', (data) => {
+      if (data.type === 'START') {
+        startTime = data.timestamp;
+        const resBox = document.getElementById('result');
+        resBox.innerText = 'Đang đo...';
+        resBox.classList.remove('flash');
+      }
+    });
+  }
+
+  function triggerStart() {
+    const now = Date.now();
+    conn.send({ type: 'START', timestamp: now });
+    // Hiệu ứng phản hồi trên máy A
+    const btn = document.getElementById('btnA');
+    btn.style.opacity = '0.5';
+    setTimeout(() => { btn.style.opacity = '1'; }, 300);
+  }
+
+  function triggerStop() {
+    if (!startTime) {
+      alert('Chưa nhận được tín hiệu bắt đầu từ mốc A!');
+      return;
+    }
+    const endTime = Date.now();
+    const durationSec = (endTime - startTime) / 1000;
+    const distanceMeters = parseFloat(document.getElementById('distance').value) || 50;
+    const speedKmh = ((distanceMeters / durationSec) * 3.6).toFixed(1);
+
+    // Hiển thị nhấp nháy trên máy B
+    const resBox = document.getElementById('result');
+    resBox.innerText = `${durationSec.toFixed(2)}s | ${speedKmh} km/h`;
+    resBox.classList.add('flash');
+    setTimeout(() => { resBox.classList.remove('flash'); }, 3000);
+
+    // Lưu Log (10 lần gần nhất)
+    logs.unshift({ time: durationSec.toFixed(2), speed: speedKmh });
+    if (logs.length > 10) logs.pop();
+    renderLogs();
+
+    // Reset về trạng thái 0
+    startTime = null;
+  }
+
+  function renderLogs() {
+    const tbody = document.getElementById('log-table');
+    tbody.innerHTML = logs.map((log, index) => `
+      <tr>
+        <td>${logs.length - index}</td>
+        <td>${log.time}</td>
+        <td><b>${log.speed}</b></td>
+      </tr>
+    `).join('');
+  }
+</script>
+</body>
+</html>
