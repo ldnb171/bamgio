@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Hệ Thống Bấm Giờ & Đo Vận Tốc 3 Điểm</title>
-  <!-- Nhúng font Be Vietnam Pro chuẩn 100% tiếng Việt -->
+  <!-- Font tiếng Việt chuẩn không lỗi dấu -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
-  <!-- MQTT qua WebSocket công cộng -->
+  <!-- MQTT qua WebSocket -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     :root {
@@ -108,7 +108,7 @@
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      background-color: #f59e0b; /* Mặc định màu vàng: chưa vào phòng */
+      background-color: #f59e0b;
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
       transition: background-color 0.3s, box-shadow 0.3s;
     }
@@ -122,7 +122,6 @@
       100% { opacity: 1; }
     }
 
-    /* Thanh cảnh báo sự cố cho Máy 1 và Máy 2 */
     .alert-banner {
       display: none;
       background: #fef2f2;
@@ -363,7 +362,6 @@
 
     <!-- PANEL 2: GIAO DIỆN CHÍNH -->
     <div id="panel-main" class="panel">
-      <!-- Cảnh báo lỗi máy trên Máy 1 và Máy 2 -->
       <div id="error-alert-box" class="alert-banner"></div>
 
       <div class="stopwatch-display" id="timer-display">00.00s</div>
@@ -441,22 +439,20 @@
   </div>
 
 <script>
-  const STORAGE_KEY_ROOM = 'speed_tracker_room_v5';
-  const STORAGE_KEY_ROLE = 'speed_tracker_role_v5';
-  const STORAGE_KEY_LOGS = 'speed_tracker_logs_v5';
-  const STORAGE_KEY_PASS = 'speed_tracker_pass_v5';
+  const STORAGE_KEY_ROOM = 'speed_tracker_room_v6';
+  const STORAGE_KEY_ROLE = 'speed_tracker_role_v6';
+  const STORAGE_KEY_LOGS = 'speed_tracker_logs_v6';
+  const STORAGE_KEY_PASS = 'speed_tracker_pass_v6';
 
   let currentRoom = '';
   let currentRole = null;
   let roomPassword = '';
   let client = null;
   let topic = '';
+  let myClientId = 'client_' + Math.random().toString(36).substring(2, 9);
   let heartbeatTimer = null;
   let checkStatusTimer = null;
 
-  // Quản lý trạng thái từng máy:
-  // hasEverJoined: đã từng gửi heartbeat trong phòng chưa
-  // lastHeartbeat: thời điểm nhận gói tin cuối cùng
   let machineState = {
     1: { hasEverJoined: false, lastHeartbeat: 0 },
     2: { hasEverJoined: false, lastHeartbeat: 0 },
@@ -550,7 +546,6 @@
     localStorage.setItem(STORAGE_KEY_ROOM, currentRoom);
     localStorage.setItem(STORAGE_KEY_ROLE, currentRole);
 
-    // Đánh dấu chính máy này đã vào
     machineState[currentRole].hasEverJoined = true;
     machineState[currentRole].lastHeartbeat = Date.now();
 
@@ -579,7 +574,6 @@
     clearInterval(checkStatusTimer);
 
     if (client) {
-      // Thông báo cho các máy khác biết máy này thoát
       sendMsg({ type: 'LEAVE', role: currentRole });
       client.end(true);
       client = null;
@@ -588,7 +582,6 @@
     localStorage.removeItem(STORAGE_KEY_ROOM);
     localStorage.removeItem(STORAGE_KEY_ROLE);
 
-    // Reset trạng thái
     machineState = {
       1: { hasEverJoined: false, lastHeartbeat: 0 },
       2: { hasEverJoined: false, lastHeartbeat: 0 },
@@ -597,9 +590,7 @@
 
     [1, 2, 3].forEach(n => {
       const dot = document.getElementById(`dot-${n}`);
-      if (dot) {
-        dot.className = 'dot yellow';
-      }
+      if (dot) dot.className = 'dot yellow';
     });
 
     document.getElementById('error-alert-box').style.display = 'none';
@@ -611,20 +602,19 @@
 
     document.getElementById('panel-main').classList.remove('active');
     document.getElementById('panel-setup').classList.add('active');
-
     document.getElementById('room-input').placeholder = `VÍ DỤ: ${generateRandom6Digits()}`;
   }
 
   function initMQTT() {
     topic = `dovantoc/room_${currentRoom}`;
     client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-      clientId: `client_${currentRoom}_M${currentRole}_${Math.random().toString(16).substr(2, 6)}`,
+      clientId: `${myClientId}_M${currentRole}`,
       clean: true,
       reconnectPeriod: 2000
     });
 
     client.on('connect', () => {
-      document.getElementById('msg-box').innerText = 'Đã vào phòng. Đang đồng bộ với các máy khác...';
+      document.getElementById('msg-box').innerText = 'Đã vào phòng. Đang kết nối 3 máy...';
       client.subscribe(topic);
 
       sendMsg({
@@ -634,7 +624,6 @@
         pass: currentRole === 1 ? roomPassword : null
       });
 
-      // Bắn nhịp tim mỗi 1 giây
       heartbeatTimer = setInterval(() => {
         sendMsg({
           type: 'HEARTBEAT',
@@ -647,16 +636,18 @@
     client.on('message', (t, payload) => {
       try {
         const data = JSON.parse(payload.toString());
+        // BỎ QUA GÓI TIN CỦA CHÍNH MÁY NÀY ĐỂ TRÁNH BỊ LẶP (DUPLICATE)
+        if (data.senderId === myClientId) return;
         handleData(data);
       } catch (e) {}
     });
 
-    // Cập nhật trạng thái phòng chuẩn xác mỗi 1 giây
     checkStatusTimer = setInterval(checkOnlineStatus, 1000);
   }
 
   function sendMsg(obj) {
     if (client && client.connected) {
+      obj.senderId = myClientId; // Gắn ID người gửi
       client.publish(topic, JSON.stringify(obj));
     }
   }
@@ -670,6 +661,7 @@
         roomPassword = data.pass;
         localStorage.setItem(STORAGE_KEY_PASS, roomPassword);
       }
+      // Đồng bộ dữ liệu đầy đủ nếu máy khác có nhiều log hơn
       if (data.logs && Array.isArray(data.logs) && data.logs.length > logsList.length) {
         logsList = data.logs;
         saveLogsLocally();
@@ -677,22 +669,22 @@
       }
       checkOnlineStatus();
     } else if (data.type === 'LEAVE') {
-      // Nhận tin báo thoát chủ động -> đưa về màu vàng (chưa vào phòng)
       machineState[data.role].hasEverJoined = false;
       machineState[data.role].lastHeartbeat = 0;
       checkOnlineStatus();
     } else if (data.type === 'START') {
       onRemoteStart(data.startTime);
     } else if (data.type === 'STOP') {
-      onRemoteStop(data.duration, data.timestamp);
+      // Nhận kết quả từ máy 2 (máy 1 và 3 cùng ghi nhận chung 1 record)
+      onRemoteStop(data);
     } else if (data.type === 'VEHICLE_CLASSIFIED') {
-      onRemoteClassified(data.logId, data.vehType);
+      // Nhận phân loại từ máy 3
+      onRemoteClassified(data.measureId, data.vehType);
     } else if (data.type === 'RESET') {
       executeClearData();
     }
   }
 
-  // --- LOGIC KIỂM TRA TRẠNG THÁI MỖI 1S ---
   function checkOnlineStatus() {
     machineState[currentRole].hasEverJoined = true;
     machineState[currentRole].lastHeartbeat = Date.now();
@@ -705,24 +697,20 @@
       if (!dot) return;
 
       const state = machineState[roleNum];
-      const isAlive = (now - state.lastHeartbeat) < 3500; // Còn phản hồi trong 3.5s
+      const isAlive = (now - state.lastHeartbeat) < 3500;
 
       dot.className = 'dot';
 
       if (isAlive && state.lastHeartbeat > 0) {
-        // Máy đã vào phòng và phản hồi tốt -> XANH LÁ
         dot.classList.add('green');
       } else if (state.hasEverJoined && !isAlive) {
-        // Đã từng vào phòng nhưng bị rớt mạng/mất tín hiệu -> ĐỎ (LỖI)
         dot.classList.add('red');
         errorMachines.push(roleNum);
       } else {
-        // Chưa vào phòng -> VÀNG
         dot.classList.add('yellow');
       }
     });
 
-    // Xử lý hiện cảnh báo ở Máy 1 và Máy 2 nếu có máy bị lỗi (MÀU ĐỎ)
     const alertBox = document.getElementById('error-alert-box');
     if ([1, 2].includes(currentRole)) {
       if (errorMachines.length > 0) {
@@ -754,6 +742,7 @@
     document.getElementById('timer-display').innerText = '00.00s';
   }
 
+  // --- MÁY 1 BẮT ĐẦU ĐO ---
   function onMachine1Start() {
     const t = Date.now();
     startLocalTimer(t);
@@ -769,6 +758,7 @@
     document.getElementById('msg-box').innerText = 'Máy 1 đã bắt đầu đo';
   }
 
+  // --- MÁY 2 DỪNG ĐO ---
   function onMachine2Stop() {
     if (!isMeasuring) return;
     const stopTime = Date.now();
@@ -776,35 +766,56 @@
     document.getElementById('btn-stop-measure').disabled = true;
 
     stopLocalTimer();
-    processStop(duration, stopTime);
-    sendMsg({ type: 'STOP', duration: duration, timestamp: stopTime });
+
+    // Sinh Mã Định Danh DUY NHẤT cho phiên đo này
+    const measureId = 'M_' + stopTime + '_' + Math.random().toString(36).substr(2, 5);
+    const carIndex = logsList.length + 1;
+
+    const recordData = {
+      measureId: measureId,
+      carIndex: carIndex,
+      duration: duration,
+      timestamp: stopTime
+    };
+
+    // Máy 2 xử lý nội bộ 1 lần duy nhất
+    processStopRecord(recordData);
+
+    // Gửi sang Máy 1 và Máy 3
+    sendMsg({
+      type: 'STOP',
+      ...recordData
+    });
   }
 
-  function onRemoteStop(duration, stopTime) {
+  function onRemoteStop(recordData) {
     stopLocalTimer();
     if (currentRole === 2) {
       document.getElementById('btn-stop-measure').disabled = true;
     }
-    processStop(duration, stopTime);
+    processStopRecord(recordData);
   }
 
-  function processStop(duration, stopTime) {
+  function processStopRecord(data) {
+    // Tránh trùng lặp nếu record đã tồn tại
+    if (logsList.some(l => l.measureId === data.measureId)) return;
+
     const timerDisplay = document.getElementById('timer-display');
-    timerDisplay.innerText = `${duration}s`;
+    timerDisplay.innerText = `${data.duration}s`;
     timerDisplay.classList.add('flash-highlight');
     setTimeout(() => {
       timerDisplay.classList.remove('flash-highlight');
       timerDisplay.innerText = '00.00s';
     }, 2000);
 
-    const d = new Date(stopTime);
+    const d = new Date(data.timestamp);
     const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
     const dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
     logsList.unshift({
-      id: Date.now(),
-      carIndex: logsList.length + 1,
-      seconds: duration,
+      measureId: data.measureId,
+      carIndex: data.carIndex,
+      seconds: data.duration,
       vehType: null,
       timeStr: timeStr,
       dateStr: dateStr
@@ -819,25 +830,34 @@
       document.getElementById('veh-selector-container').style.display = 'block';
       document.getElementById('m3-idle-screen').style.display = 'none';
     } else {
-      document.getElementById('msg-box').innerText = `Lượt đo hoàn tất: ${duration}s. Chờ Máy 3 phân loại xe...`;
+      document.getElementById('msg-box').innerText = `Lượt đo hoàn tất: ${data.duration}s. Chờ Máy 3 phân loại xe...`;
     }
   }
 
+  // --- MÁY 3 PHÂN LOẠI XE ---
   function onSelectVehicle(typeNum) {
+    // Tìm đúng xe gần nhất chưa phân loại
     const targetLog = logsList.find(l => l.vehType === null);
     if (targetLog) {
       targetLog.vehType = typeNum;
       saveLogsLocally();
       renderLogsTable();
-      sendMsg({ type: 'VEHICLE_CLASSIFIED', logId: targetLog.id, vehType: typeNum });
+
+      // Đồng bộ chính xác theo measureId sang Máy 1 và Máy 2
+      sendMsg({
+        type: 'VEHICLE_CLASSIFIED',
+        measureId: targetLog.measureId,
+        vehType: typeNum
+      });
     }
+
     document.getElementById('veh-selector-container').style.display = 'none';
     document.getElementById('m3-idle-screen').style.display = 'block';
     document.getElementById('msg-box').innerText = `Máy 3: Đã chọn LOẠI XE ${typeNum}. Trạng thái: Rảnh.`;
   }
 
-  function onRemoteClassified(logId, vehType) {
-    const item = logsList.find(l => l.id === logId);
+  function onRemoteClassified(measureId, vehType) {
+    const item = logsList.find(l => l.measureId === measureId);
     if (item) {
       item.vehType = vehType;
       saveLogsLocally();
@@ -867,7 +887,7 @@
           <td style="color:#0284c7; font-weight:700;">${log.seconds}s</td>
           <td>${vehBadge}</td>
           <td style="font-size:12px; color:var(--text-muted);">${log.timeStr} ${log.dateStr}</td>
-          <td><button class="btn-edit-veh" onclick="openEditVehModal(${log.id})">Sửa</button></td>
+          <td><button class="btn-edit-veh" onclick="openEditVehModal('${log.measureId}')">Sửa</button></td>
         </tr>
       `;
     }).join('');
@@ -877,9 +897,9 @@
     localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logsList));
   }
 
-  function openEditVehModal(logId) {
-    currentEditingVehicleIndex = logId;
-    const log = logsList.find(l => l.id === logId);
+  function openEditVehModal(measureId) {
+    currentEditingVehicleIndex = measureId;
+    const log = logsList.find(l => l.measureId === measureId);
     if (!log) return;
     document.getElementById('edit-veh-title').innerText = `Chỉnh sửa cho Xe số ${log.carIndex} (${log.seconds}s)`;
     document.getElementById('modal-edit-veh').classList.add('show');
@@ -892,19 +912,24 @@
 
   function saveEditedVehType(newType) {
     if (!currentEditingVehicleIndex) return;
-    const log = logsList.find(l => l.id === currentEditingVehicleIndex);
+    const log = logsList.find(l => l.measureId === currentEditingVehicleIndex);
     if (log) {
       log.vehType = newType;
       saveLogsLocally();
       renderLogsTable();
-      sendMsg({ type: 'VEHICLE_CLASSIFIED', logId: log.id, vehType: newType });
+
+      sendMsg({
+        type: 'VEHICLE_CLASSIFIED',
+        measureId: log.measureId,
+        vehType: newType
+      });
     }
     closeEditModal();
   }
 
   function toggleEditAllVehicles() {
     if (logsList.length === 0) return alert('Chưa có lượt đo nào!');
-    openEditVehModal(logsList[0].id);
+    openEditVehModal(logsList[0].measureId);
   }
 
   function exportTxtLog() {
