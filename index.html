@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Hệ Thống Bấm Giờ & Đo Vận Tốc 3 Điểm</title>
-  <!-- PeerJS for direct WebRTC P2P mesh network -->
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Dùng MQTT qua WebSocket cực kỳ ổn định, bắt tay tức thì -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     :root {
       --bg-main: #f5f7fa;
@@ -21,12 +21,7 @@
       --gray-light: #f1f5f9;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -49,7 +44,6 @@
       border: 1px solid var(--border-color);
     }
 
-    /* Top Bar: Status indicators */
     .header-bar {
       display: flex;
       flex-direction: column;
@@ -89,20 +83,13 @@
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      background-color: #ef4444; /* Đỏ: mất kết nối */
+      background-color: #ef4444;
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
-      transition: background-color 0.3s, box-shadow 0.3s;
+      transition: background-color 0.3s;
     }
 
-    .dot.yellow {
-      background-color: #f59e0b; /* Vàng: đang chờ / kết nối 1 phần */
-      box-shadow: 0 0 8px #f59e0b;
-    }
-
-    .dot.green {
-      background-color: #10b981; /* Xanh: kết nối thông suốt */
-      box-shadow: 0 0 8px #10b981;
-    }
+    .dot.yellow { background-color: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+    .dot.green { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
 
     .role-badge {
       display: inline-block;
@@ -112,31 +99,13 @@
       border-radius: 20px;
       font-size: 13px;
       font-weight: 700;
-      text-align: center;
-      margin: 0 auto;
     }
 
-    /* Screen: Setup / Join Room */
-    .panel {
-      display: none;
-    }
+    .panel { display: none; }
+    .panel.active { display: block; }
 
-    .panel.active {
-      display: block;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-      text-align: left;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 700;
-      margin-bottom: 6px;
-      color: #334155;
-    }
+    .form-group { margin-bottom: 16px; text-align: left; }
+    .form-group label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 6px; color: #334155; }
 
     .input-text {
       width: 100%;
@@ -147,20 +116,10 @@
       border-radius: 10px;
       text-transform: uppercase;
       outline: none;
-      transition: border-color 0.2s;
     }
+    .input-text:focus { border-color: var(--primary); }
 
-    .input-text:focus {
-      border-color: var(--primary);
-    }
-
-    .role-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin: 15px 0 20px 0;
-    }
-
+    .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0 20px 0; }
     .role-btn {
       padding: 14px 8px;
       border: 2px solid var(--border-color);
@@ -173,20 +132,9 @@
       flex-direction: column;
       align-items: center;
       gap: 4px;
-      transition: all 0.2s;
     }
-
-    .role-btn span {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text-muted);
-    }
-
-    .role-btn.selected {
-      border-color: var(--primary);
-      background: #eff6ff;
-      color: var(--primary);
-    }
+    .role-btn span { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+    .role-btn.selected { border-color: var(--primary); background: #eff6ff; color: var(--primary); }
 
     .btn-submit {
       width: 100%;
@@ -198,14 +146,8 @@
       border: none;
       border-radius: 12px;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
     }
 
-    .btn-submit:hover {
-      background: var(--primary-hover);
-    }
-
-    /* Stopwatch Display */
     .stopwatch-display {
       background: #0f172a;
       color: #38bdf8;
@@ -217,7 +159,6 @@
       text-align: center;
       letter-spacing: 2px;
       margin: 16px 0;
-      box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
     }
 
     .info-msg {
@@ -236,7 +177,6 @@
       text-align: center;
     }
 
-    /* Big Action Buttons */
     .btn-big-action {
       width: 100%;
       height: 120px;
@@ -249,38 +189,14 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-      transition: transform 0.1s, opacity 0.2s;
     }
+    .btn-big-action:active { transform: scale(0.98); }
+    .btn-start { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+    .btn-stop { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+    .btn-stop:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; color: #94a3b8; }
 
-    .btn-big-action:active {
-      transform: scale(0.98);
-    }
-
-    .btn-start {
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    }
-
-    .btn-stop {
-      background: linear-gradient(135deg, #dc2626, #b91c1c);
-    }
-
-    .btn-stop:disabled {
-      background: #cbd5e1;
-      cursor: not-allowed;
-      box-shadow: none;
-      color: #94a3b8;
-    }
-
-    /* Máy 3: 3 Nút cực to */
-    .vehicle-btn-group {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-      margin-top: 10px;
-    }
-
+    .vehicle-btn-group { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 10px; }
     .btn-vehicle {
       height: 95px;
       border-radius: 18px;
@@ -289,48 +205,25 @@
       font-size: 28px;
       font-weight: 900;
       cursor: pointer;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 4px;
-      transition: transform 0.1s;
     }
-
-    .btn-vehicle:active {
-      transform: scale(0.98);
-    }
-
-    .btn-vehicle span {
-      font-size: 14px;
-      font-weight: 600;
-      opacity: 0.9;
-    }
-
+    .btn-vehicle:active { transform: scale(0.98); }
+    .btn-vehicle span { font-size: 14px; font-weight: 600; opacity: 0.9; }
     .btn-type-1 { background: linear-gradient(135deg, #0284c7, #0369a1); }
     .btn-type-2 { background: linear-gradient(135deg, #d97706, #b45309); }
     .btn-type-3 { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
 
-    /* Flash highlight animation */
-    .flash-highlight {
-      animation: flashBg 0.5s 4 alternate;
-    }
-
+    .flash-highlight { animation: flashBg 0.5s 4 alternate; }
     @keyframes flashBg {
       0% { background: #0f172a; color: #38bdf8; }
       100% { background: #fef08a; color: #854d0e; }
     }
 
-    /* Control / Data Action Bar */
-    .data-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 24px;
-      padding-top: 18px;
-      border-top: 2px solid var(--border-color);
-    }
-
+    .data-actions { display: flex; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 2px solid var(--border-color); }
     .btn-secondary {
       flex: 1;
       padding: 12px;
@@ -341,132 +234,37 @@
       font-size: 14px;
       color: #334155;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
+    .btn-danger-outline { color: var(--danger); border-color: #fecaca; }
 
-    .btn-secondary:hover {
-      background: var(--gray-light);
-    }
+    .table-container { margin-top: 18px; max-height: 380px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+    thead th { position: sticky; top: 0; background: #f8fafc; color: #475569; font-weight: 800; padding: 10px 6px; border-bottom: 2px solid var(--border-color); }
+    tbody td { padding: 8px 6px; border-bottom: 1px solid var(--border-color); color: #1e293b; }
+    tbody tr:nth-child(even) { background-color: #fcfdfe; }
 
-    .btn-danger-outline {
-      color: var(--danger);
-      border-color: #fecaca;
-    }
-
-    .btn-danger-outline:hover {
-      background: #fef2f2;
-    }
-
-    /* Log Table */
-    .table-container {
-      margin-top: 18px;
-      max-height: 380px;
-      overflow-y: auto;
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      text-align: center;
-    }
-
-    thead th {
-      position: sticky;
-      top: 0;
-      background: #f8fafc;
-      color: #475569;
-      font-weight: 800;
-      padding: 10px 6px;
-      border-bottom: 2px solid var(--border-color);
-      z-index: 1;
-    }
-
-    tbody td {
-      padding: 8px 6px;
-      border-bottom: 1px solid var(--border-color);
-      color: #1e293b;
-    }
-
-    tbody tr:nth-child(even) {
-      background-color: #fcfdfe;
-    }
-
-    .badge-veh {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 12px;
-    }
+    .badge-veh { display: inline-block; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 12px; }
     .badge-1 { background: #e0f2fe; color: #0369a1; }
     .badge-2 { background: #fef3c7; color: #b45309; }
     .badge-3 { background: #f3e8ff; color: #6d28d9; }
     .badge-pending { background: #fee2e2; color: #b91c1c; }
 
-    .btn-edit-veh {
-      background: none;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 3px 8px;
-      font-size: 12px;
-      cursor: pointer;
-      color: #475569;
-    }
-    .btn-edit-veh:hover {
-      background: #e2e8f0;
-    }
+    .btn-edit-veh { background: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; color: #475569; }
 
-    /* Modal */
-    .modal-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-    .modal-backdrop.show {
-      display: flex;
-    }
-    .modal-box {
-      background: white;
-      border-radius: 16px;
-      padding: 20px;
-      max-width: 380px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-    }
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 16px; }
+    .modal-backdrop.show { display: flex; }
+    .modal-box { background: white; border-radius: 16px; padding: 20px; max-width: 380px; width: 100%; text-align: center; }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <!-- Header: Status indicators -->
     <div class="header-bar">
       <div class="title">BẤM GIỜ & ĐO VẬN TỐC 3 MÁY</div>
       <div class="status-panel">
-        <div class="status-node" id="node-1">
-          <div class="dot" id="dot-1"></div>
-          <span>Máy 1 (Mốc A)</span>
-        </div>
-        <div class="status-node" id="node-2">
-          <div class="dot" id="dot-2"></div>
-          <span>Máy 2 (Mốc B)</span>
-        </div>
-        <div class="status-node" id="node-3">
-          <div class="dot" id="dot-3"></div>
-          <span>Máy 3 (Phân Loại)</span>
-        </div>
+        <div class="status-node" id="node-1"><div class="dot" id="dot-1"></div><span>Máy 1 (Mốc A)</span></div>
+        <div class="status-node" id="node-2"><div class="dot" id="dot-2"></div><span>Máy 2 (Mốc B)</span></div>
+        <div class="status-node" id="node-3"><div class="dot" id="dot-3"></div><span>Máy 3 (Phân Loại)</span></div>
       </div>
       <div id="role-display" style="text-align:center; display:none;">
         <span class="role-badge" id="role-badge-text">Máy: Chưa chọn</span>
@@ -478,74 +276,41 @@
     <div id="panel-setup" class="panel active">
       <div class="form-group">
         <label for="room-input">MÃ PHÒNG CHUNG (6 - 30 ký tự CHỮ & SỐ):</label>
-        <input type="text" id="room-input" class="input-text" placeholder="VÍ DỤ: TOCDO2026A" maxlength="30" />
-        <small style="color:var(--text-muted); font-size:12px; display:block; margin-top:4px;">
-          * Tất cả 3 máy cùng nhập chính xác mã phòng này để tự động kết nối nhau.
-        </small>
+        <input type="text" id="room-input" class="input-text" placeholder="VÍ DỤ: FFFGGG" maxlength="30" />
       </div>
 
       <div class="form-group">
         <label>CHỌN VAI TRÒ MÁY CỦA BẠN:</label>
         <div class="role-grid">
-          <button type="button" class="role-btn" id="rbtn-1" onclick="selectRole(1)">
-            <b>MÁY 1</b>
-            <span>Mốc A (Bắt đầu)</span>
-          </button>
-          <button type="button" class="role-btn" id="rbtn-2" onclick="selectRole(2)">
-            <b>MÁY 2</b>
-            <span>Mốc B (Dừng)</span>
-          </button>
-          <button type="button" class="role-btn" id="rbtn-3" onclick="selectRole(3)">
-            <b>MÁY 3</b>
-            <span>Phân loại xe</span>
-          </button>
+          <button type="button" class="role-btn" id="rbtn-1" onclick="selectRole(1)"><b>MÁY 1</b><span>Mốc A (Bắt đầu)</span></button>
+          <button type="button" class="role-btn" id="rbtn-2" onclick="selectRole(2)"><b>MÁY 2</b><span>Mốc B (Dừng)</span></button>
+          <button type="button" class="role-btn" id="rbtn-3" onclick="selectRole(3)"><b>MÁY 3</b><span>Phân loại xe</span></button>
         </div>
       </div>
 
       <button type="button" class="btn-submit" onclick="joinRoom()">VÀO PHÒNG KẾT NỐI</button>
     </div>
 
-    <!-- PANEL 2: GIAO DIỆN CHÍNH KHI ĐÃ VÀO PHÒNG -->
+    <!-- PANEL 2: GIAO DIỆN CHÍNH -->
     <div id="panel-main" class="panel">
-      <!-- Màn hình đồng hồ đếm giây + mili giây -->
       <div class="stopwatch-display" id="timer-display">00.00s</div>
+      <div class="info-msg" id="msg-box">Đang kết nối vào máy chủ phòng...</div>
 
-      <!-- Dòng trạng thái thông báo giữa các máy -->
-      <div class="info-msg" id="msg-box">Đang đồng bộ tín hiệu giữa 3 máy...</div>
-
-      <!-- Khu vực nút bấm riêng của MÁY 1 -->
       <div id="area-machine-1" style="display:none;">
-        <button class="btn-big-action btn-start" id="btn-start-measure" onclick="onMachine1Start()">
-          ▶ BẮT ĐẦU ĐO (XE VÀO MỐC A)
-        </button>
+        <button class="btn-big-action btn-start" onclick="onMachine1Start()">▶ BẮT ĐẦU ĐO (XE VÀO MỐC A)</button>
       </div>
 
-      <!-- Khu vực nút bấm riêng của MÁY 2 -->
       <div id="area-machine-2" style="display:none;">
-        <button class="btn-big-action btn-stop" id="btn-stop-measure" disabled onclick="onMachine2Stop()">
-          ⏹ DỪNG ĐO (XE QUA MỐC B)
-        </button>
+        <button class="btn-big-action btn-stop" id="btn-stop-measure" disabled onclick="onMachine2Stop()">⏹ DỪNG ĐO (XE QUA MỐC B)</button>
       </div>
 
-      <!-- Khu vực 3 NÚT CỰC TO riêng của MÁY 3 -->
       <div id="area-machine-3" style="display:none;">
         <div id="veh-selector-container" style="display:none;">
-          <p style="font-weight:700; font-size:15px; margin-bottom:8px; color:#1e293b; text-align:center;">
-            👇 CHỌN LOẠI XE CHO LƯỢT ĐO VỪA XONG:
-          </p>
+          <p style="font-weight:700; font-size:15px; margin-bottom:8px; text-align:center;">👇 CHỌN LOẠI XE CHO LƯỢT VỪA ĐO:</p>
           <div class="vehicle-btn-group">
-            <button class="btn-vehicle btn-type-1" onclick="onSelectVehicle(1)">
-              LOẠI 1
-              <span>(Xe máy / Xe 2 bánh)</span>
-            </button>
-            <button class="btn-vehicle btn-type-2" onclick="onSelectVehicle(2)">
-              LOẠI 2
-              <span>(Xe ô tô 4-7 chỗ)</span>
-            </button>
-            <button class="btn-vehicle btn-type-3" onclick="onSelectVehicle(3)">
-              LOẠI 3
-              <span>(Xe tải / Xe khách / Khác)</span>
-            </button>
+            <button class="btn-vehicle btn-type-1" onclick="onSelectVehicle(1)">LOẠI 1<span>(Xe 2 bánh / Gắn máy)</span></button>
+            <button class="btn-vehicle btn-type-2" onclick="onSelectVehicle(2)">LOẠI 2<span>(Ô tô 4-7 chỗ)</span></button>
+            <button class="btn-vehicle btn-type-3" onclick="onSelectVehicle(3)">LOẠI 3<span>(Xe tải / Khách / Khác)</span></button>
           </div>
         </div>
         <div id="m3-idle-screen" style="text-align:center; padding: 25px 10px; background:var(--gray-light); border-radius:14px;">
@@ -554,48 +319,32 @@
         </div>
       </div>
 
-      <!-- Nhật ký 100 lần đo gần nhất -->
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:20px;">
-        <h3 style="font-size:16px; font-weight:800;">NHẬT KÝ 100 XE ĐO ĐỒNG BỘ (<span id="log-count">0</span>/100)</h3>
+        <h3 style="font-size:16px; font-weight:800;">NHẬT KÝ 100 XE (<span id="log-count">0</span>/100)</h3>
         <button class="btn-edit-veh" onclick="toggleEditAllVehicles()">⚙ Sửa loại xe</button>
       </div>
 
       <div class="table-container">
         <table>
           <thead>
-            <tr>
-              <th>Xe #</th>
-              <th>Thời gian</th>
-              <th>Loại xe</th>
-              <th>Thời điểm</th>
-              <th>Thao tác</th>
-            </tr>
+            <tr><th>Xe #</th><th>Thời gian</th><th>Loại xe</th><th>Thời điểm</th><th>Thao tác</th></tr>
           </thead>
-          <tbody id="log-tbody">
-            <!-- Render logs -->
-          </tbody>
+          <tbody id="log-tbody"></tbody>
         </table>
       </div>
 
-      <!-- Action buttons: Xuất TXT & Xóa dữ liệu có mật khẩu -->
       <div class="data-actions">
-        <button class="btn-secondary" onclick="exportTxtLog()">
-          📥 XUẤT FILE TXT
-        </button>
-        <button class="btn-secondary btn-danger-outline" onclick="openResetModal()">
-          🗑 XÓA TẤT CẢ (CẦN PASS)
-        </button>
+        <button class="btn-secondary" onclick="exportTxtLog()">📥 XUẤT FILE TXT</button>
+        <button class="btn-secondary btn-danger-outline" onclick="openResetModal()">🗑 XÓA TẤT CẢ (PASS)</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: XÓA DỮ LIỆU BẢO MẬT -->
+  <!-- MODAL XÓA DỮ LIỆU -->
   <div class="modal-backdrop" id="modal-delete">
     <div class="modal-box">
       <h3 style="color:var(--danger); margin-bottom:10px;">XÓA TOÀN BỘ DỮ LIỆU</h3>
-      <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
-        Hành động này sẽ xóa sạch nhật ký đo trên cả 3 máy. Nhập mật khẩu xác nhận:
-      </p>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Nhập mật khẩu xác nhận:</p>
       <input type="password" id="delete-password" class="input-text" style="margin-bottom:14px; text-transform:none; text-align:center;" placeholder="Nhập mật khẩu..." />
       <div style="display:flex; gap:10px;">
         <button class="btn-secondary" onclick="closeResetModal()">Hủy</button>
@@ -604,7 +353,7 @@
     </div>
   </div>
 
-  <!-- MODAL: SỬA LOẠI XE CHO MỘT LƯỢT ĐO -->
+  <!-- MODAL SỬA LOẠI XE -->
   <div class="modal-backdrop" id="modal-edit-veh">
     <div class="modal-box">
       <h3 style="margin-bottom:12px;">ĐỔI LOẠI PHƯƠNG TIỆN</h3>
@@ -619,29 +368,23 @@
   </div>
 
 <script>
-  // --- HỆ THỐNG BIẾN TOÀN CỤC & TRẠNG THÁI ---
-  const STORAGE_KEY_ROOM = 'speed_tracker_room_2026';
-  const STORAGE_KEY_ROLE = 'speed_tracker_role_2026';
-  const STORAGE_KEY_LOGS = 'speed_tracker_logs_2026';
+  const STORAGE_KEY_ROOM = 'speed_tracker_room_v2';
+  const STORAGE_KEY_ROLE = 'speed_tracker_role_v2';
+  const STORAGE_KEY_LOGS = 'speed_tracker_logs_v2';
 
   let currentRoom = '';
-  let currentRole = null; // 1, 2 hoặc 3
-  let peer = null;
-  let peerConnections = {}; // Lưu trữ kết nối tới các peer khác { 1: conn, 2: conn, 3: conn }
-  let onlineMachines = { 1: false, 2: false, 3: false };
+  let currentRole = null;
+  let client = null;
+  let topic = '';
 
+  let lastHeartbeat = { 1: 0, 2: 0, 3: 0 };
   let isMeasuring = false;
   let measurementStartTime = null;
   let timerInterval = null;
-  let lastMeasuredDuration = null;
+  let logsList = [];
   let currentEditingVehicleIndex = null;
 
-  // Danh sách tối đa 100 logs: [{ id, seconds, vehType, timeStr, dateStr }]
-  let logsList = [];
-
-  // Tự động khôi phục cấu hình từ localStorage khi tải lại trang (F5)
   window.addEventListener('DOMContentLoaded', () => {
-    // Ép chữ in hoa và lọc ký tự phòng
     const roomInput = document.getElementById('room-input');
     roomInput.addEventListener('input', (e) => {
       e.target.value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
@@ -652,22 +395,12 @@
     const savedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
 
     if (savedLogs) {
-      try {
-        logsList = JSON.parse(savedLogs);
-      } catch(e) { logsList = []; }
+      try { logsList = JSON.parse(savedLogs); } catch(e) { logsList = []; }
     }
 
-    if (savedRoom) {
-      roomInput.value = savedRoom;
-    }
-    if (savedRole && [1, 2, 3].includes(savedRole)) {
-      selectRole(savedRole);
-    }
-
-    // Tự động kết nối lại nếu đã từng tham gia phòng
-    if (savedRoom && savedRole) {
-      joinRoom();
-    }
+    if (savedRoom) roomInput.value = savedRoom;
+    if (savedRole && [1, 2, 3].includes(savedRole)) selectRole(savedRole);
+    if (savedRoom && savedRole) joinRoom();
   });
 
   function selectRole(roleNum) {
@@ -678,19 +411,14 @@
     });
   }
 
-  // --- KẾT NỐI MESH PEERJS DỰA TRÊN MÃ PHÒNG ---
-  function getPeerId(room, role) {
-    return `${room}__M${role}`;
-  }
-
   function joinRoom() {
     const roomVal = document.getElementById('room-input').value.trim().toUpperCase();
     if (!roomVal || roomVal.length < 6 || roomVal.length > 30) {
-      alert('Tên phòng phải từ 6 đến 30 ký tự, chỉ gồm chữ cái và số (viết hoa)!');
+      alert('Tên phòng phải từ 6 đến 30 ký tự, gồm chữ và số!');
       return;
     }
     if (!currentRole) {
-      alert('Vui lòng chọn vai trò (Máy 1, Máy 2 hoặc Máy 3)!');
+      alert('Vui lòng chọn vai trò Máy 1, 2 hoặc 3!');
       return;
     }
 
@@ -704,192 +432,108 @@
     document.getElementById('role-badge-text').innerText = `Bạn đang là MÁY ${currentRole}`;
     document.getElementById('room-badge-text').innerText = `Phòng: ${currentRoom}`;
 
-    // Hiển thị cụm thao tác tương ứng với từng máy
     if (currentRole === 1) document.getElementById('area-machine-1').style.display = 'block';
     if (currentRole === 2) document.getElementById('area-machine-2').style.display = 'block';
     if (currentRole === 3) document.getElementById('area-machine-3').style.display = 'block';
 
     renderLogsTable();
-    initPeerMesh();
+    initMQTT();
   }
 
-  function initPeerMesh() {
-    const myId = getPeerId(currentRoom, currentRole);
-    onlineMachines[currentRole] = true;
-    updateStatusIndicators();
-
-    // Tạo Peer
-    peer = new Peer(myId, {
-      debug: 1,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
-      }
+  function initMQTT() {
+    topic = `dovantoc/room_${currentRoom}`;
+    // Kết nối MQTT Broker công cộng qua WSS (cực kỳ nhanh và không bị tường lửa chặn)
+    client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+      clientId: `client_${currentRoom}_M${currentRole}_${Math.random().toString(16).substr(2, 6)}`,
+      clean: true,
+      reconnectPeriod: 2000
     });
 
-    peer.on('open', () => {
-      console.log('Peer opened with ID:', myId);
-      connectToOtherPeers();
+    client.on('connect', () => {
+      document.getElementById('msg-box').innerText = 'Đã vào phòng. Đang tìm 2 máy còn lại...';
+      client.subscribe(topic);
+
+      // Báo danh ngay lập tức
+      sendMsg({ type: 'HEARTBEAT', role: currentRole, logs: logsList });
+
+      // Gửi nhịp tim định kỳ mỗi 1.5 giây
+      setInterval(() => {
+        sendMsg({ type: 'HEARTBEAT', role: currentRole });
+      }, 1500);
     });
 
-    peer.on('connection', (conn) => {
-      setupConnection(conn);
+    client.on('message', (t, payload) => {
+      try {
+        const data = JSON.parse(payload.toString());
+        handleData(data);
+      } catch (e) {}
     });
 
-    peer.on('error', (err) => {
-      console.warn('Peer error:', err);
-      // Nếu ID bị trùng do F5 nhanh, thử reconnect
-      if (err.type === 'unavailable-id') {
-        setTimeout(() => {
-          if (peer) peer.destroy();
-          initPeerMesh();
-        }, 1500);
-      }
-    });
-
-    // Thử kết nối định kỳ lại với các node chưa online
-    setInterval(() => {
-      connectToOtherPeers();
-    }, 4000);
+    // Quét trạng thái online mỗi giây
+    setInterval(checkOnlineStatus, 1000);
   }
 
-  function connectToOtherPeers() {
-    [1, 2, 3].forEach(targetRole => {
-      if (targetRole !== currentRole) {
-        if (!peerConnections[targetRole] || !peerConnections[targetRole].open) {
-          const targetPeerId = getPeerId(currentRoom, targetRole);
-          const conn = peer.connect(targetPeerId, { reliable: true });
-          setupConnection(conn, targetRole);
-        }
-      }
-    });
+  function sendMsg(obj) {
+    if (client && client.connected) {
+      client.publish(topic, JSON.stringify(obj));
+    }
   }
 
-  function setupConnection(conn, fallbackTargetRole = null) {
-    conn.on('open', () => {
-      // Xác định role của peer kia thông qua peer ID
-      const parts = conn.peer.split('__M');
-      const remoteRole = parts.length === 2 ? parseInt(parts[1]) : fallbackTargetRole;
-      if (remoteRole) {
-        peerConnections[remoteRole] = conn;
-        onlineMachines[remoteRole] = true;
-        updateStatusIndicators();
-
-        // Đồng bộ dữ liệu log cho máy mới vào
-        sendDataToRole(remoteRole, {
-          type: 'SYNC_LOGS',
-          logs: logsList
-        });
+  function handleData(data) {
+    if (data.type === 'HEARTBEAT') {
+      lastHeartbeat[data.role] = Date.now();
+      if (data.logs && Array.isArray(data.logs) && data.logs.length > logsList.length) {
+        logsList = data.logs;
+        saveLogsLocally();
+        renderLogsTable();
       }
-    });
-
-    conn.on('data', (data) => {
-      handleIncomingData(data);
-    });
-
-    conn.on('close', () => {
-      const parts = conn.peer.split('__M');
-      const remoteRole = parts.length === 2 ? parseInt(parts[1]) : fallbackTargetRole;
-      if (remoteRole) {
-        delete peerConnections[remoteRole];
-        onlineMachines[remoteRole] = false;
-        updateStatusIndicators();
-      }
-    });
-
-    conn.on('error', () => {
-      const parts = conn.peer.split('__M');
-      const remoteRole = parts.length === 2 ? parseInt(parts[1]) : fallbackTargetRole;
-      if (remoteRole) {
-        delete peerConnections[remoteRole];
-        onlineMachines[remoteRole] = false;
-        updateStatusIndicators();
-      }
-    });
+      checkOnlineStatus();
+    } else if (data.type === 'START') {
+      onRemoteStart(data.startTime);
+    } else if (data.type === 'STOP') {
+      onRemoteStop(data.duration, data.timestamp);
+    } else if (data.type === 'VEHICLE_CLASSIFIED') {
+      onRemoteClassified(data.logId, data.vehType);
+    } else if (data.type === 'RESET') {
+      executeClearData();
+    }
   }
 
-  // --- TRẠNG THÁI STATUS CHẤM TRÒN (ĐỎ - VÀNG - XANH) ---
-  function updateStatusIndicators() {
-    // Đếm số máy kết nối
-    const onlineCount = [1, 2, 3].filter(r => onlineMachines[r]).length;
+  function checkOnlineStatus() {
+    lastHeartbeat[currentRole] = Date.now(); // Máy này luôn online
+    const now = Date.now();
+    let onlineCount = 0;
+
+    [1, 2, 3].forEach(roleNum => {
+      const isOnline = (now - lastHeartbeat[roleNum]) < 4000;
+      if (isOnline) onlineCount++;
+    });
 
     [1, 2, 3].forEach(roleNum => {
       const dot = document.getElementById(`dot-${roleNum}`);
       if (!dot) return;
       dot.className = 'dot';
 
-      if (!onlineMachines[roleNum]) {
-        // Đỏ: máy chưa kết nối
-        dot.style.backgroundColor = '#ef4444';
+      const isOnline = (now - lastHeartbeat[roleNum]) < 4000;
+      if (!isOnline) {
+        dot.style.backgroundColor = '#ef4444'; // Đỏ
       } else {
         if (onlineCount === 3) {
-          // Xanh: Cả 3 máy đều kết nối thông suốt
-          dot.classList.add('green');
+          dot.classList.add('green'); // Xanh: đủ 3 máy
         } else {
-          // Vàng: Đã online nhưng chưa đủ 3 máy
-          dot.classList.add('yellow');
+          dot.classList.add('yellow'); // Vàng: thiếu máy
         }
       }
     });
   }
 
-  // --- PHÁT TÍN HIỆU TOÀN MẠNG (BROADCAST) ---
-  function broadcast(data) {
-    [1, 2, 3].forEach(roleNum => {
-      if (roleNum !== currentRole && peerConnections[roleNum] && peerConnections[roleNum].open) {
-        peerConnections[roleNum].send(data);
-      }
-    });
-  }
-
-  function sendDataToRole(roleNum, data) {
-    if (peerConnections[roleNum] && peerConnections[roleNum].open) {
-      peerConnections[roleNum].send(data);
-    }
-  }
-
-  // --- XỬ LÝ DỮ LIỆU NHẬN ĐƯỢC ---
-  function handleIncomingData(data) {
-    switch (data.type) {
-      case 'START_MEASURING':
-        onRemoteStartMeasuring(data.startTime);
-        break;
-
-      case 'STOP_MEASURING':
-        onRemoteStopMeasuring(data.duration, data.timestamp);
-        break;
-
-      case 'VEHICLE_CLASSIFIED':
-        onRemoteVehicleClassified(data.logId, data.vehType);
-        break;
-
-      case 'SYNC_LOGS':
-        // Hợp nhất log đồng bộ nếu máy nhận ít log hơn
-        if (Array.isArray(data.logs) && data.logs.length >= logsList.length) {
-          logsList = data.logs;
-          saveLogsLocally();
-          renderLogsTable();
-        }
-        break;
-
-      case 'RESET_ALL_DATA':
-        executeClearData();
-        break;
-    }
-  }
-
-  // --- LOGIC BẤM GIỜ & ĐỒNG BỘ HIỂN THỊ ---
   function startLocalTimer(baseTime) {
     isMeasuring = true;
     measurementStartTime = baseTime;
     clearInterval(timerInterval);
-
     timerInterval = setInterval(() => {
       const elapsedMs = Date.now() - measurementStartTime;
-      const totalSec = elapsedMs / 1000;
-      const secStr = totalSec.toFixed(2).padStart(5, '0');
+      const secStr = (elapsedMs / 1000).toFixed(2).padStart(5, '0');
       document.getElementById('timer-display').innerText = `${secStr}s`;
     }, 40);
   }
@@ -897,62 +541,44 @@
   function stopLocalTimer() {
     isMeasuring = false;
     clearInterval(timerInterval);
-    // Quay về số 0
     document.getElementById('timer-display').innerText = '00.00s';
   }
 
-  // MÁY 1 BẤM
   function onMachine1Start() {
-    const startTime = Date.now();
-    startLocalTimer(startTime);
-
+    const t = Date.now();
+    startLocalTimer(t);
     document.getElementById('msg-box').innerText = 'Máy 1 đã bắt đầu đo. Đang đếm thời gian...';
-
-    broadcast({
-      type: 'START_MEASURING',
-      startTime: startTime
-    });
+    sendMsg({ type: 'START', startTime: t });
   }
 
-  function onRemoteStartMeasuring(startTime) {
+  function onRemoteStart(startTime) {
     startLocalTimer(startTime);
-
     if (currentRole === 2) {
       document.getElementById('btn-stop-measure').disabled = false;
     }
     document.getElementById('msg-box').innerText = 'Máy 1 đã bắt đầu đo';
   }
 
-  // MÁY 2 BẤM
   function onMachine2Stop() {
     if (!isMeasuring) return;
-
     const stopTime = Date.now();
     const duration = ((stopTime - measurementStartTime) / 1000).toFixed(2);
     document.getElementById('btn-stop-measure').disabled = true;
 
     stopLocalTimer();
-    processStopMeasurement(duration, stopTime);
-
-    broadcast({
-      type: 'STOP_MEASURING',
-      duration: duration,
-      timestamp: stopTime
-    });
+    processStop(duration, stopTime);
+    sendMsg({ type: 'STOP', duration: duration, timestamp: stopTime });
   }
 
-  function onRemoteStopMeasuring(duration, stopTime) {
+  function onRemoteStop(duration, stopTime) {
     stopLocalTimer();
     if (currentRole === 2) {
       document.getElementById('btn-stop-measure').disabled = true;
     }
-    processStopMeasurement(duration, stopTime);
+    processStop(duration, stopTime);
   }
 
-  function processStopMeasurement(duration, stopTime) {
-    lastMeasuredDuration = duration;
-
-    // Hiệu ứng nhấp nháy trên màn hình
+  function processStop(duration, stopTime) {
     const timerDisplay = document.getElementById('timer-display');
     timerDisplay.innerText = `${duration}s`;
     timerDisplay.classList.add('flash-highlight');
@@ -961,35 +587,23 @@
       timerDisplay.innerText = '00.00s';
     }, 2000);
 
-    // Format ngày giờ: [hh:mm:ss] [dd/mm/yy]
     const d = new Date(stopTime);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    const ss = String(d.getSeconds()).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const yy = String(d.getFullYear()).slice(-2);
+    const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+    const dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-    const timeStr = `${hh}:${mm}:${ss}`;
-    const dateStr = `${dd}/${mo}/${yy}`;
-
-    const newLogId = Date.now();
-    const newLogItem = {
-      id: newLogId,
+    logsList.unshift({
+      id: Date.now(),
       carIndex: logsList.length + 1,
       seconds: duration,
-      vehType: null, // Chưa chọn
+      vehType: null,
       timeStr: timeStr,
       dateStr: dateStr
-    };
+    });
 
-    // Đưa vào đầu danh sách, tối đa 100 xe
-    logsList.unshift(newLogItem);
     if (logsList.length > 100) logsList.pop();
     saveLogsLocally();
     renderLogsTable();
 
-    // Thông báo trạng thái theo yêu cầu
     if (currentRole === 3) {
       document.getElementById('msg-box').innerText = 'Máy 1 và 2 đã đo xong. Vui lòng chọn loại xe';
       document.getElementById('veh-selector-container').style.display = 'block';
@@ -999,29 +613,20 @@
     }
   }
 
-  // --- MÁY 3 PHÂN LOẠI XE ---
   function onSelectVehicle(typeNum) {
-    // Tìm xe gần nhất chưa có loại
     const targetLog = logsList.find(l => l.vehType === null);
     if (targetLog) {
       targetLog.vehType = typeNum;
       saveLogsLocally();
       renderLogsTable();
-
-      broadcast({
-        type: 'VEHICLE_CLASSIFIED',
-        logId: targetLog.id,
-        vehType: typeNum
-      });
+      sendMsg({ type: 'VEHICLE_CLASSIFIED', logId: targetLog.id, vehType: typeNum });
     }
-
-    // Quay về màn hình trống và đặt máy 3 ở trạng thái rảnh
     document.getElementById('veh-selector-container').style.display = 'none';
     document.getElementById('m3-idle-screen').style.display = 'block';
     document.getElementById('msg-box').innerText = `Máy 3: Đã phân loại xong Xe Loại ${typeNum}. Trạng thái: Rảnh.`;
   }
 
-  function onRemoteVehicleClassified(logId, vehType) {
+  function onRemoteClassified(logId, vehType) {
     const item = logsList.find(l => l.id === logId);
     if (item) {
       item.vehType = vehType;
@@ -1031,7 +636,6 @@
     }
   }
 
-  // --- HIỂN THỊ VÀ CẬP NHẬT NHẬT KÝ 100 XE ---
   function renderLogsTable() {
     const tbody = document.getElementById('log-tbody');
     document.getElementById('log-count').innerText = logsList.length;
@@ -1053,9 +657,7 @@
           <td style="color:#0284c7; font-weight:700;">${log.seconds}s</td>
           <td>${vehBadge}</td>
           <td style="font-size:12px; color:var(--text-muted);">${log.timeStr} ${log.dateStr}</td>
-          <td>
-            <button class="btn-edit-veh" onclick="openEditVehModal(${log.id})">Sửa</button>
-          </td>
+          <td><button class="btn-edit-veh" onclick="openEditVehModal(${log.id})">Sửa</button></td>
         </tr>
       `;
     }).join('');
@@ -1065,12 +667,10 @@
     localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logsList));
   }
 
-  // --- SỬA LOẠI XE CHO PHÉP CHỌN LẠI ---
   function openEditVehModal(logId) {
     currentEditingVehicleIndex = logId;
     const log = logsList.find(l => l.id === logId);
     if (!log) return;
-
     document.getElementById('edit-veh-title').innerText = `Chỉnh sửa cho Xe số ${log.carIndex} (${log.seconds}s)`;
     document.getElementById('modal-edit-veh').classList.add('show');
   }
@@ -1087,49 +687,32 @@
       log.vehType = newType;
       saveLogsLocally();
       renderLogsTable();
-
-      broadcast({
-        type: 'VEHICLE_CLASSIFIED',
-        logId: log.id,
-        vehType: newType
-      });
+      sendMsg({ type: 'VEHICLE_CLASSIFIED', logId: log.id, vehType: newType });
     }
     closeEditModal();
   }
 
   function toggleEditAllVehicles() {
-    if (logsList.length === 0) return alert('Chưa có lượt đo nào để sửa!');
+    if (logsList.length === 0) return alert('Chưa có lượt đo nào!');
     openEditVehModal(logsList[0].id);
   }
 
-  // --- XUẤT FILE TXT ĐÚNG ĐỊNH DẠNG YÊU CẦU ---
   function exportTxtLog() {
-    if (logsList.length === 0) {
-      alert('Chưa có dữ liệu để xuất file!');
-      return;
-    }
-
-    // Định dạng: Xe số 1: 3.40s | Xe loại 1 [hh:mm:ss] [dd/mm/yy]
-    // Xuất theo thứ tự đo từ xe số 1 trở đi
+    if (logsList.length === 0) return alert('Chưa có dữ liệu để xuất file!');
     const sortedList = [...logsList].reverse();
     const lines = sortedList.map((item, idx) => {
       const typeStr = item.vehType ? `Xe loại ${item.vehType}` : `Chưa phân loại`;
       return `Xe số ${idx + 1}: ${item.seconds}s | ${typeStr} [${item.timeStr}] [${item.dateStr}]`;
     });
-
-    const content = lines.join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `NhatKy_DoVanToc_${currentRoom || '2026'}.txt`;
+    link.href = URL.createObjectURL(blob);
+    link.download = `NhatKy_DoVanToc_${currentRoom}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   }
 
-  // --- XÓA DỮ LIỆU ĐỒNG BỘ 3 MÁY (MẬT KHẨU Aa@.1234) ---
   function openResetModal() {
     document.getElementById('delete-password').value = '';
     document.getElementById('modal-delete').classList.add('show');
@@ -1140,17 +723,13 @@
   }
 
   function confirmResetData() {
-    const pwd = document.getElementById('delete-password').value;
-    if (pwd !== 'Aa@.1234') {
-      alert('Mật khẩu không chính xác!');
-      return;
+    if (document.getElementById('delete-password').value !== 'Aa@.1234') {
+      return alert('Mật khẩu không chính xác!');
     }
-
-    // Xóa máy hiện tại và gửi lệnh cho 2 máy còn lại
     executeClearData();
-    broadcast({ type: 'RESET_ALL_DATA' });
+    sendMsg({ type: 'RESET' });
     closeResetModal();
-    alert('Đã xóa sạch dữ liệu trên toàn bộ 3 máy!');
+    alert('Đã xóa sạch dữ liệu trên cả 3 máy!');
   }
 
   function executeClearData() {
