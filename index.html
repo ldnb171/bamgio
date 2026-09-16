@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Hệ Thống Bấm Giờ & Đo Vận Tốc 3 Điểm</title>
-  <!-- Nhúng font Be Vietnam Pro chuẩn 100% tiếng Việt không bao giờ lỗi dấu -->
+  <!-- Nhúng font Be Vietnam Pro chuẩn 100% tiếng Việt -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
@@ -108,13 +108,39 @@
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      background-color: #ef4444;
+      background-color: #f59e0b; /* Mặc định màu vàng: chưa vào phòng */
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
-      transition: background-color 0.3s;
+      transition: background-color 0.3s, box-shadow 0.3s;
     }
 
-    .dot.yellow { background-color: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
     .dot.green { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+    .dot.yellow { background-color: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+    .dot.red { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; animation: blink-dot 0.8s infinite alternate; }
+
+    @keyframes blink-dot {
+      0% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+
+    /* Thanh cảnh báo sự cố cho Máy 1 và Máy 2 */
+    .alert-banner {
+      display: none;
+      background: #fef2f2;
+      border: 2px solid #ef4444;
+      color: #b91c1c;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 14px;
+      text-align: center;
+      animation: alert-flash 1s infinite alternate;
+    }
+
+    @keyframes alert-flash {
+      0% { background: #fef2f2; border-color: #ef4444; }
+      100% { background: #fee2e2; border-color: #b91c1c; }
+    }
 
     .role-badge {
       display: inline-block;
@@ -225,7 +251,6 @@
     .btn-stop { background: linear-gradient(135deg, #dc2626, #b91c1c); }
     .btn-stop:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; color: #94a3b8; }
 
-    /* Máy 3: 3 NÚT CỰC TO CHỈ CÓ CHỮ LOẠI XE 1-2-3 */
     .vehicle-btn-group { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 10px; }
     .btn-vehicle {
       height: 95px;
@@ -296,9 +321,9 @@
         <button id="btn-leave-room" class="btn-leave" onclick="leaveRoom()">🚪 THOÁT PHÒNG</button>
       </div>
       <div class="status-panel">
-        <div class="status-node" id="node-1"><div class="dot" id="dot-1"></div><span>Máy 1 (Mốc A)</span></div>
-        <div class="status-node" id="node-2"><div class="dot" id="dot-2"></div><span>Máy 2 (Mốc B)</span></div>
-        <div class="status-node" id="node-3"><div class="dot" id="dot-3"></div><span>Máy 3 (Phân Loại)</span></div>
+        <div class="status-node" id="node-1"><div class="dot yellow" id="dot-1"></div><span>Máy 1 (Mốc A)</span></div>
+        <div class="status-node" id="node-2"><div class="dot yellow" id="dot-2"></div><span>Máy 2 (Mốc B)</span></div>
+        <div class="status-node" id="node-3"><div class="dot yellow" id="dot-3"></div><span>Máy 3 (Phân Loại)</span></div>
       </div>
       <div id="role-display" style="text-align:center; display:none;">
         <span class="role-badge" id="role-badge-text">Máy: Chưa chọn</span>
@@ -325,7 +350,6 @@
         </div>
       </div>
 
-      <!-- Khối đặt mật khẩu 6 số (chỉ Máy 1 thấy) -->
       <div class="form-group" id="group-admin-pass" style="display:none;">
         <label for="admin-pass-input" style="color:var(--primary);">MẬT KHẨU XÓA DỮ LIỆU (ĐÚNG 6 CHỮ SỐ CHO MÁY 1):</label>
         <input type="text" id="admin-pass-input" class="input-text" inputmode="numeric" maxlength="6" placeholder="Ví dụ: 123456" />
@@ -339,6 +363,9 @@
 
     <!-- PANEL 2: GIAO DIỆN CHÍNH -->
     <div id="panel-main" class="panel">
+      <!-- Cảnh báo lỗi máy trên Máy 1 và Máy 2 -->
+      <div id="error-alert-box" class="alert-banner"></div>
+
       <div class="stopwatch-display" id="timer-display">00.00s</div>
       <div class="info-msg" id="msg-box">Đang kết nối vào máy chủ phòng...</div>
 
@@ -350,7 +377,6 @@
         <button class="btn-big-action btn-stop" id="btn-stop-measure" disabled onclick="onMachine2Stop()">⏹ DỪNG ĐO (XE QUA MỐC B)</button>
       </div>
 
-      <!-- Khu vực Máy 3: Chỉ giữ LOẠI XE 1 - 2 - 3 không chú thích -->
       <div id="area-machine-3" style="display:none;">
         <div id="veh-selector-container" style="display:none;">
           <p style="font-weight:700; font-size:15px; margin-bottom:8px; text-align:center;">👇 CHỌN LOẠI XE CHO LƯỢT VỪA ĐO:</p>
@@ -400,7 +426,7 @@
     </div>
   </div>
 
-  <!-- MODAL SỬA LOẠI XE (Chỉ còn LOẠI XE 1-2-3) -->
+  <!-- MODAL SỬA LOẠI XE -->
   <div class="modal-backdrop" id="modal-edit-veh">
     <div class="modal-box">
       <h3 style="margin-bottom:12px;">ĐỔI LOẠI PHƯƠNG TIỆN</h3>
@@ -415,10 +441,10 @@
   </div>
 
 <script>
-  const STORAGE_KEY_ROOM = 'speed_tracker_room_v4';
-  const STORAGE_KEY_ROLE = 'speed_tracker_role_v4';
-  const STORAGE_KEY_LOGS = 'speed_tracker_logs_v4';
-  const STORAGE_KEY_PASS = 'speed_tracker_pass_v4';
+  const STORAGE_KEY_ROOM = 'speed_tracker_room_v5';
+  const STORAGE_KEY_ROLE = 'speed_tracker_role_v5';
+  const STORAGE_KEY_LOGS = 'speed_tracker_logs_v5';
+  const STORAGE_KEY_PASS = 'speed_tracker_pass_v5';
 
   let currentRoom = '';
   let currentRole = null;
@@ -428,7 +454,15 @@
   let heartbeatTimer = null;
   let checkStatusTimer = null;
 
-  let lastHeartbeat = { 1: 0, 2: 0, 3: 0 };
+  // Quản lý trạng thái từng máy:
+  // hasEverJoined: đã từng gửi heartbeat trong phòng chưa
+  // lastHeartbeat: thời điểm nhận gói tin cuối cùng
+  let machineState = {
+    1: { hasEverJoined: false, lastHeartbeat: 0 },
+    2: { hasEverJoined: false, lastHeartbeat: 0 },
+    3: { hasEverJoined: false, lastHeartbeat: 0 }
+  };
+
   let isMeasuring = false;
   let measurementStartTime = null;
   let timerInterval = null;
@@ -516,6 +550,10 @@
     localStorage.setItem(STORAGE_KEY_ROOM, currentRoom);
     localStorage.setItem(STORAGE_KEY_ROLE, currentRole);
 
+    // Đánh dấu chính máy này đã vào
+    machineState[currentRole].hasEverJoined = true;
+    machineState[currentRole].lastHeartbeat = Date.now();
+
     document.getElementById('panel-setup').classList.remove('active');
     document.getElementById('panel-main').classList.add('active');
     document.getElementById('btn-leave-room').style.display = 'block';
@@ -539,7 +577,10 @@
     stopLocalTimer();
     clearInterval(heartbeatTimer);
     clearInterval(checkStatusTimer);
+
     if (client) {
+      // Thông báo cho các máy khác biết máy này thoát
+      sendMsg({ type: 'LEAVE', role: currentRole });
       client.end(true);
       client = null;
     }
@@ -547,15 +588,21 @@
     localStorage.removeItem(STORAGE_KEY_ROOM);
     localStorage.removeItem(STORAGE_KEY_ROLE);
 
-    lastHeartbeat = { 1: 0, 2: 0, 3: 0 };
+    // Reset trạng thái
+    machineState = {
+      1: { hasEverJoined: false, lastHeartbeat: 0 },
+      2: { hasEverJoined: false, lastHeartbeat: 0 },
+      3: { hasEverJoined: false, lastHeartbeat: 0 }
+    };
+
     [1, 2, 3].forEach(n => {
       const dot = document.getElementById(`dot-${n}`);
       if (dot) {
-        dot.className = 'dot';
-        dot.style.backgroundColor = '#ef4444';
+        dot.className = 'dot yellow';
       }
     });
 
+    document.getElementById('error-alert-box').style.display = 'none';
     document.getElementById('btn-leave-room').style.display = 'none';
     document.getElementById('role-display').style.display = 'none';
     document.getElementById('area-machine-1').style.display = 'none';
@@ -577,7 +624,7 @@
     });
 
     client.on('connect', () => {
-      document.getElementById('msg-box').innerText = 'Đã vào phòng. Đang tìm 2 máy còn lại...';
+      document.getElementById('msg-box').innerText = 'Đã vào phòng. Đang đồng bộ với các máy khác...';
       client.subscribe(topic);
 
       sendMsg({
@@ -587,13 +634,14 @@
         pass: currentRole === 1 ? roomPassword : null
       });
 
+      // Bắn nhịp tim mỗi 1 giây
       heartbeatTimer = setInterval(() => {
         sendMsg({
           type: 'HEARTBEAT',
           role: currentRole,
           pass: currentRole === 1 ? roomPassword : null
         });
-      }, 1500);
+      }, 1000);
     });
 
     client.on('message', (t, payload) => {
@@ -603,6 +651,7 @@
       } catch (e) {}
     });
 
+    // Cập nhật trạng thái phòng chuẩn xác mỗi 1 giây
     checkStatusTimer = setInterval(checkOnlineStatus, 1000);
   }
 
@@ -614,7 +663,9 @@
 
   function handleData(data) {
     if (data.type === 'HEARTBEAT') {
-      lastHeartbeat[data.role] = Date.now();
+      machineState[data.role].hasEverJoined = true;
+      machineState[data.role].lastHeartbeat = Date.now();
+
       if (data.role === 1 && data.pass) {
         roomPassword = data.pass;
         localStorage.setItem(STORAGE_KEY_PASS, roomPassword);
@@ -624,6 +675,11 @@
         saveLogsLocally();
         renderLogsTable();
       }
+      checkOnlineStatus();
+    } else if (data.type === 'LEAVE') {
+      // Nhận tin báo thoát chủ động -> đưa về màu vàng (chưa vào phòng)
+      machineState[data.role].hasEverJoined = false;
+      machineState[data.role].lastHeartbeat = 0;
       checkOnlineStatus();
     } else if (data.type === 'START') {
       onRemoteStart(data.startTime);
@@ -636,31 +692,49 @@
     }
   }
 
+  // --- LOGIC KIỂM TRA TRẠNG THÁI MỖI 1S ---
   function checkOnlineStatus() {
-    lastHeartbeat[currentRole] = Date.now();
-    const now = Date.now();
-    let onlineCount = 0;
+    machineState[currentRole].hasEverJoined = true;
+    machineState[currentRole].lastHeartbeat = Date.now();
 
-    [1, 2, 3].forEach(roleNum => {
-      if ((now - lastHeartbeat[roleNum]) < 4000) onlineCount++;
-    });
+    const now = Date.now();
+    let errorMachines = [];
 
     [1, 2, 3].forEach(roleNum => {
       const dot = document.getElementById(`dot-${roleNum}`);
       if (!dot) return;
+
+      const state = machineState[roleNum];
+      const isAlive = (now - state.lastHeartbeat) < 3500; // Còn phản hồi trong 3.5s
+
       dot.className = 'dot';
 
-      const isOnline = (now - lastHeartbeat[roleNum]) < 4000;
-      if (!isOnline) {
-        dot.style.backgroundColor = '#ef4444';
+      if (isAlive && state.lastHeartbeat > 0) {
+        // Máy đã vào phòng và phản hồi tốt -> XANH LÁ
+        dot.classList.add('green');
+      } else if (state.hasEverJoined && !isAlive) {
+        // Đã từng vào phòng nhưng bị rớt mạng/mất tín hiệu -> ĐỎ (LỖI)
+        dot.classList.add('red');
+        errorMachines.push(roleNum);
       } else {
-        if (onlineCount === 3) {
-          dot.classList.add('green');
-        } else {
-          dot.classList.add('yellow');
-        }
+        // Chưa vào phòng -> VÀNG
+        dot.classList.add('yellow');
       }
     });
+
+    // Xử lý hiện cảnh báo ở Máy 1 và Máy 2 nếu có máy bị lỗi (MÀU ĐỎ)
+    const alertBox = document.getElementById('error-alert-box');
+    if ([1, 2].includes(currentRole)) {
+      if (errorMachines.length > 0) {
+        const errorText = errorMachines.map(m => `MÁY ${m}`).join(', ');
+        alertBox.innerText = `⚠️ CẢNH BÁO: ${errorText} BỊ MẤT KẾT NỐI / LỖI TÍN HIỆU!`;
+        alertBox.style.display = 'block';
+      } else {
+        alertBox.style.display = 'none';
+      }
+    } else {
+      alertBox.style.display = 'none';
+    }
   }
 
   function startLocalTimer(baseTime) {
