@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Hệ Thống Bấm Giờ & Đo Vận Tốc 3 Điểm</title>
-  <!-- Font tiếng Việt chuẩn không lỗi dấu -->
+  <title>Hệ Thống Bấm Giờ & Đo Vận Tốc</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
-  <!-- MQTT qua WebSocket -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     :root {
@@ -84,8 +82,6 @@
       font-family: inherit;
     }
 
-    .btn-leave:hover { background: #fecaca; }
-
     .status-panel {
       display: flex;
       justify-content: space-around;
@@ -133,12 +129,6 @@
       font-size: 14px;
       margin-bottom: 14px;
       text-align: center;
-      animation: alert-flash 1s infinite alternate;
-    }
-
-    @keyframes alert-flash {
-      0% { background: #fef2f2; border-color: #ef4444; }
-      100% { background: #fee2e2; border-color: #b91c1c; }
     }
 
     .role-badge {
@@ -169,6 +159,30 @@
     }
     .input-text:focus { border-color: var(--primary); }
 
+    /* Tabs chọn chế độ */
+    .mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .mode-tab-btn {
+      flex: 1;
+      padding: 10px 4px;
+      border: 2px solid var(--border-color);
+      background: white;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--text-muted);
+    }
+    .mode-tab-btn.active {
+      border-color: var(--primary);
+      background: #eff6ff;
+      color: var(--primary);
+    }
+
     .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0 15px 0; }
     .role-btn {
       padding: 14px 8px;
@@ -184,7 +198,7 @@
       gap: 4px;
       font-family: inherit;
     }
-    .role-btn span { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+    .role-btn span { font-size: 11px; font-weight: 500; color: var(--text-muted); text-align: center; }
     .role-btn.selected { border-color: var(--primary); background: #eff6ff; color: var(--primary); }
 
     .btn-submit {
@@ -231,7 +245,7 @@
 
     .btn-big-action {
       width: 100%;
-      height: 120px;
+      height: 110px;
       border-radius: 20px;
       font-size: 24px;
       font-weight: 800;
@@ -244,19 +258,20 @@
       box-shadow: 0 8px 20px rgba(0,0,0,0.15);
       font-family: inherit;
       letter-spacing: 0.2px;
+      margin-bottom: 12px;
     }
     .btn-big-action:active { transform: scale(0.98); }
     .btn-start { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
     .btn-stop { background: linear-gradient(135deg, #dc2626, #b91c1c); }
     .btn-stop:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; color: #94a3b8; }
 
-    .vehicle-btn-group { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 10px; }
+    .vehicle-btn-group { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 10px; }
     .btn-vehicle {
-      height: 95px;
-      border-radius: 18px;
+      height: 85px;
+      border-radius: 16px;
       border: none;
       color: white;
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 800;
       cursor: pointer;
       display: flex;
@@ -316,48 +331,52 @@
   <div class="container">
     <div class="header-bar">
       <div class="title-row">
-        <div class="title">BẤM GIỜ & ĐO VẬN TỐC 3 MÁY</div>
+        <div class="title">HỆ THỐNG ĐO VẬN TỐC XE</div>
         <button id="btn-leave-room" class="btn-leave" onclick="leaveRoom()">🚪 THOÁT PHÒNG</button>
       </div>
-      <div class="status-panel">
-        <div class="status-node" id="node-1"><div class="dot yellow" id="dot-1"></div><span>Máy 1 (Mốc A)</span></div>
-        <div class="status-node" id="node-2"><div class="dot yellow" id="dot-2"></div><span>Máy 2 (Mốc B)</span></div>
-        <div class="status-node" id="node-3"><div class="dot yellow" id="dot-3"></div><span>Máy 3 (Phân Loại)</span></div>
+
+      <!-- Khu vực hiển thị đèn kết nối linh hoạt theo chế độ -->
+      <div class="status-panel" id="status-panel-container">
+        <div class="status-node" id="node-1"><div class="dot yellow" id="dot-1"></div><span id="label-node-1">Máy 1</span></div>
+        <div class="status-node" id="node-2"><div class="dot yellow" id="dot-2"></div><span id="label-node-2">Máy 2</span></div>
+        <div class="status-node" id="node-3"><div class="dot yellow" id="dot-3"></div><span id="label-node-3">Máy 3</span></div>
       </div>
+
       <div id="role-display" style="text-align:center; display:none;">
-        <span class="role-badge" id="role-badge-text">Máy: Chưa chọn</span>
+        <span class="role-badge" id="role-badge-text">Chế độ</span>
         <span id="room-badge-text" style="font-size:12px; color:var(--text-muted); margin-left:8px; font-weight:600;"></span>
       </div>
     </div>
 
-    <!-- PANEL 1: CẤU HÌNH PHÒNG & CHỌN MÁY -->
+    <!-- PANEL 1: CẤU HÌNH -->
     <div id="panel-setup" class="panel active">
       <div class="form-group">
-        <label for="room-input">MÃ PHÒNG (6 - 30 CHỮ SỐ, KHÔNG CHỨA CHỮ HAY KÝ TỰ):</label>
-        <input type="text" id="room-input" class="input-text" inputmode="numeric" maxlength="30" />
-        <small style="color:var(--text-muted); font-size:12px; display:block; margin-top:4px;">
-          * Tất cả 3 máy cùng nhập đúng dãy số này.
-        </small>
+        <label>CHỌN CHẾ ĐỘ HOẠT ĐỘNG:</label>
+        <div class="mode-tabs">
+          <button type="button" class="mode-tab-btn" id="mtab-1" onclick="switchMode(1)">👤 1 Người</button>
+          <button type="button" class="mode-tab-btn" id="mtab-2" onclick="switchMode(2)">👥 2 Người</button>
+          <button type="button" class="mode-tab-btn active" id="mtab-3" onclick="switchMode(3)">👥 3 Người</button>
+        </div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" id="group-room-code">
+        <label for="room-input">MÃ PHÒNG (6 - 30 CHỮ SỐ, KHÔNG CHỨA CHỮ HAY KÝ TỰ):</label>
+        <input type="text" id="room-input" class="input-text" inputmode="numeric" maxlength="30" />
+      </div>
+
+      <div class="form-group" id="group-role-select">
         <label>CHỌN VAI TRÒ MÁY CỦA BẠN:</label>
-        <div class="role-grid">
-          <button type="button" class="role-btn" id="rbtn-1" onclick="selectRole(1)"><b>MÁY 1</b><span>Mốc A (Bắt đầu)</span></button>
-          <button type="button" class="role-btn" id="rbtn-2" onclick="selectRole(2)"><b>MÁY 2</b><span>Mốc B (Dừng)</span></button>
-          <button type="button" class="role-btn" id="rbtn-3" onclick="selectRole(3)"><b>MÁY 3</b><span>Phân loại xe</span></button>
+        <div class="role-grid" id="role-grid-container">
+          <!-- Render linh hoạt qua JS -->
         </div>
       </div>
 
       <div class="form-group" id="group-admin-pass" style="display:none;">
         <label for="admin-pass-input" style="color:var(--primary);">MẬT KHẨU XÓA DỮ LIỆU (ĐÚNG 6 CHỮ SỐ CHO MÁY 1):</label>
         <input type="text" id="admin-pass-input" class="input-text" inputmode="numeric" maxlength="6" placeholder="Ví dụ: 123456" />
-        <small style="color:var(--text-muted); font-size:12px; display:block; margin-top:4px;">
-          * Mật khẩu này sẽ dùng để xóa dữ liệu trên cả 3 máy khi cần.
-        </small>
       </div>
 
-      <button type="button" class="btn-submit" onclick="joinRoom()">VÀO PHÒNG KẾT NỐI</button>
+      <button type="button" class="btn-submit" onclick="joinApp()">BẮT ĐẦU HOẠT ĐỘNG</button>
     </div>
 
     <!-- PANEL 2: GIAO DIỆN CHÍNH -->
@@ -365,17 +384,34 @@
       <div id="error-alert-box" class="alert-banner"></div>
 
       <div class="stopwatch-display" id="timer-display">00.00s</div>
-      <div class="info-msg" id="msg-box">Đang kết nối vào máy chủ phòng...</div>
+      <div class="info-msg" id="msg-box">Hệ thống sẵn sàng...</div>
 
+      <!-- Khu vực bấm của Chế độ 1 Người (Tự đo + Tự phân loại) -->
+      <div id="area-mode-single" style="display:none;">
+        <button class="btn-big-action btn-start" id="btn-single-action" onclick="onSinglePersonAction()">
+          ▶ BẮT ĐẦU ĐO (XE VÀO MỐC)
+        </button>
+      </div>
+
+      <!-- Khu vực Máy 1 (chế độ 2 người: Đo + Dừng) -->
+      <div id="area-mode2-m1" style="display:none;">
+        <button class="btn-big-action btn-start" id="btn-m2-action" onclick="onMode2Machine1Action()">
+          ▶ BẮT ĐẦU ĐO
+        </button>
+      </div>
+
+      <!-- Khu vực Máy 1 (chế độ 3 người: Chỉ Đo) -->
       <div id="area-machine-1" style="display:none;">
         <button class="btn-big-action btn-start" onclick="onMachine1Start()">▶ BẮT ĐẦU ĐO (XE VÀO MỐC A)</button>
       </div>
 
+      <!-- Khu vực Máy 2 (chế độ 3 người: Chỉ Dừng) -->
       <div id="area-machine-2" style="display:none;">
         <button class="btn-big-action btn-stop" id="btn-stop-measure" disabled onclick="onMachine2Stop()">⏹ DỪNG ĐO (XE QUA MỐC B)</button>
       </div>
 
-      <div id="area-machine-3" style="display:none;">
+      <!-- Khu vực 3 Nút to Phân loại xe (Dùng cho Máy 3 hoặc Máy 2 ở chế độ 2 người, hoặc 1 người) -->
+      <div id="area-classifier" style="display:none;">
         <div id="veh-selector-container" style="display:none;">
           <p style="font-weight:700; font-size:15px; margin-bottom:8px; text-align:center;">👇 CHỌN LOẠI XE CHO LƯỢT VỪA ĐO:</p>
           <div class="vehicle-btn-group">
@@ -384,9 +420,9 @@
             <button class="btn-vehicle btn-type-3" onclick="onSelectVehicle(3)">LOẠI XE 3</button>
           </div>
         </div>
-        <div id="m3-idle-screen" style="text-align:center; padding: 25px 10px; background:var(--gray-light); border-radius:14px;">
-          <p style="font-size:16px; font-weight:700; color:#64748b;">MÁY 3 Ở TRẠNG THÁI RẢNH</p>
-          <p style="font-size:13px; color:#94a3b8; margin-top:4px;">Chờ Máy 1 và 2 hoàn tất lượt đo...</p>
+        <div id="idle-screen" style="text-align:center; padding: 25px 10px; background:var(--gray-light); border-radius:14px;">
+          <p style="font-size:16px; font-weight:700; color:#64748b;">TRẠNG THÁI RẢNH</p>
+          <p style="font-size:13px; color:#94a3b8; margin-top:4px;">Chờ hoàn tất lượt đo...</p>
         </div>
       </div>
 
@@ -415,7 +451,7 @@
   <div class="modal-backdrop" id="modal-delete">
     <div class="modal-box">
       <h3 style="color:var(--danger); margin-bottom:10px;">XÓA TOÀN BỘ DỮ LIỆU</h3>
-      <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Nhập đúng 6 số mật khẩu mà Máy 1 đã cài đặt:</p>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;" id="modal-delete-desc">Nhập đúng 6 số mật khẩu:</p>
       <input type="password" id="delete-password" class="input-text" inputmode="numeric" maxlength="6" style="margin-bottom:14px; text-align:center;" placeholder="Nhập 6 số..." />
       <div style="display:flex; gap:10px;">
         <button class="btn-secondary" onclick="closeResetModal()">Hủy</button>
@@ -439,11 +475,7 @@
   </div>
 
 <script>
-  const STORAGE_KEY_ROOM = 'speed_tracker_room_v6';
-  const STORAGE_KEY_ROLE = 'speed_tracker_role_v6';
-  const STORAGE_KEY_LOGS = 'speed_tracker_logs_v6';
-  const STORAGE_KEY_PASS = 'speed_tracker_pass_v6';
-
+  let currentMode = 3; // 1, 2, hoặc 3 người
   let currentRoom = '';
   let currentRole = null;
   let roomPassword = '';
@@ -481,36 +513,74 @@
 
     roomInput.placeholder = `VÍ DỤ: ${generateRandom6Digits()}`;
 
-    roomInput.addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/\D/g, '');
-    });
-    adminPassInput.addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/\D/g, '');
-    });
-    deletePassInput.addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/\D/g, '');
-    });
+    roomInput.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, ''); });
+    adminPassInput.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, ''); });
+    deletePassInput.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, ''); });
 
-    const savedRoom = localStorage.getItem(STORAGE_KEY_ROOM);
-    const savedRole = parseInt(localStorage.getItem(STORAGE_KEY_ROLE));
-    const savedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
-    const savedPass = localStorage.getItem(STORAGE_KEY_PASS);
-
+    const savedLogs = localStorage.getItem('speed_tracker_logs_universal');
     if (savedLogs) {
       try { logsList = JSON.parse(savedLogs); } catch(e) { logsList = []; }
     }
-    if (savedPass) roomPassword = savedPass;
-    if (savedRoom) roomInput.value = savedRoom;
-    if (savedRole && [1, 2, 3].includes(savedRole)) selectRole(savedRole);
-    if (savedRoom && savedRole) joinRoom();
+
+    switchMode(3);
   });
+
+  // --- CHUYỂN ĐỔI CHẾ ĐỘ 1, 2, 3 NGƯỜI ---
+  function switchMode(modeNum) {
+    currentMode = modeNum;
+    [1, 2, 3].forEach(m => {
+      document.getElementById(`mtab-${m}`).classList.toggle('active', m === modeNum);
+    });
+
+    const roomGroup = document.getElementById('group-room-code');
+    const roleGroup = document.getElementById('group-role-select');
+    const passGroup = document.getElementById('group-admin-pass');
+    const grid = document.getElementById('role-grid-container');
+
+    currentRole = null;
+    passGroup.style.display = 'none';
+
+    if (modeNum === 1) {
+      roomGroup.style.display = 'none';
+      roleGroup.style.display = 'none';
+      passGroup.style.display = 'block'; // 1 người tự đặt pass xóa
+    } else if (modeNum === 2) {
+      roomGroup.style.display = 'block';
+      roleGroup.style.display = 'block';
+      grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+      grid.innerHTML = `
+        <button type="button" class="role-btn" id="rbtn-1" onclick="selectRole(1)">
+          <b>MÁY 1</b><span>Bấm Bắt đầu & Dừng</span>
+        </button>
+        <button type="button" class="role-btn" id="rbtn-2" onclick="selectRole(2)">
+          <b>MÁY 2</b><span>Phân loại xe 1-2-3</span>
+        </button>
+      `;
+    } else {
+      roomGroup.style.display = 'block';
+      roleGroup.style.display = 'block';
+      grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      grid.innerHTML = `
+        <button type="button" class="role-btn" id="rbtn-1" onclick="selectRole(1)">
+          <b>MÁY 1</b><span>Mốc A (Bắt đầu)</span>
+        </button>
+        <button type="button" class="role-btn" id="rbtn-2" onclick="selectRole(2)">
+          <b>MÁY 2</b><span>Mốc B (Dừng)</span>
+        </button>
+        <button type="button" class="role-btn" id="rbtn-3" onclick="selectRole(3)">
+          <b>MÁY 3</b><span>Phân loại xe</span>
+        </button>
+      `;
+    }
+  }
 
   function selectRole(roleNum) {
     currentRole = roleNum;
-    [1, 2, 3].forEach(n => {
+    const totalRoles = currentMode;
+    for (let n = 1; n <= totalRoles; n++) {
       const btn = document.getElementById(`rbtn-${n}`);
       if (btn) btn.classList.toggle('selected', n === roleNum);
-    });
+    }
 
     const passGroup = document.getElementById('group-admin-pass');
     if (roleNum === 1) {
@@ -521,53 +591,101 @@
     }
   }
 
-  function joinRoom() {
-    const roomVal = document.getElementById('room-input').value.trim();
-    if (!/^\d{6,30}$/.test(roomVal)) {
-      alert('Mã phòng phải gồm từ 6 đến 30 CHỮ SỐ, không được chứa chữ cái hay ký tự khác!');
-      return;
-    }
-    if (!currentRole) {
-      alert('Vui lòng chọn vai trò Máy 1, 2 hoặc 3!');
-      return;
-    }
-
-    if (currentRole === 1) {
+  function joinApp() {
+    if (currentMode === 1) {
+      // Chế độ 1 người
       const passVal = document.getElementById('admin-pass-input').value.trim();
       if (!/^\d{6}$/.test(passVal)) {
-        alert('Máy 1 bắt buộc phải thiết lập mật khẩu đúng 6 CHỮ SỐ (0-9)!');
+        alert('Vui lòng thiết lập mật khẩu đúng 6 CHỮ SỐ để bảo vệ dữ liệu!');
         return;
       }
       roomPassword = passVal;
-      localStorage.setItem(STORAGE_KEY_PASS, roomPassword);
+      currentRole = 1;
+      setupInterface();
+      document.getElementById('msg-box').innerText = 'Chế độ 1 người: Bấm Bắt đầu khi xe vào mốc, bấm Dừng khi xe ra mốc.';
+    } else {
+      // Chế độ 2 hoặc 3 người
+      const roomVal = document.getElementById('room-input').value.trim();
+      if (!/^\d{6,30}$/.test(roomVal)) {
+        alert('Mã phòng phải gồm từ 6 đến 30 CHỮ SỐ!');
+        return;
+      }
+      if (!currentRole) {
+        alert('Vui lòng chọn vai trò máy!');
+        return;
+      }
+      if (currentRole === 1) {
+        const passVal = document.getElementById('admin-pass-input').value.trim();
+        if (!/^\d{6}$/.test(passVal)) {
+          alert('Máy 1 bắt buộc thiết lập mật khẩu đúng 6 CHỮ SỐ!');
+          return;
+        }
+        roomPassword = passVal;
+      }
+
+      currentRoom = roomVal;
+      machineState[currentRole].hasEverJoined = true;
+      machineState[currentRole].lastHeartbeat = Date.now();
+      setupInterface();
+      initMQTT();
     }
+  }
 
-    currentRoom = roomVal;
-    localStorage.setItem(STORAGE_KEY_ROOM, currentRoom);
-    localStorage.setItem(STORAGE_KEY_ROLE, currentRole);
-
-    machineState[currentRole].hasEverJoined = true;
-    machineState[currentRole].lastHeartbeat = Date.now();
-
+  function setupInterface() {
     document.getElementById('panel-setup').classList.remove('active');
     document.getElementById('panel-main').classList.add('active');
     document.getElementById('btn-leave-room').style.display = 'block';
     document.getElementById('role-display').style.display = 'block';
-    document.getElementById('role-badge-text').innerText = `Bạn đang là MÁY ${currentRole}`;
-    document.getElementById('room-badge-text').innerText = `Phòng: ${currentRoom}`;
 
-    if (currentRole === 1) document.getElementById('area-machine-1').style.display = 'block';
-    if (currentRole === 2) document.getElementById('area-machine-2').style.display = 'block';
-    if (currentRole === 3) document.getElementById('area-machine-3').style.display = 'block';
+    // Cập nhật giao diện đèn trạng thái
+    const n1 = document.getElementById('node-1');
+    const n2 = document.getElementById('node-2');
+    const n3 = document.getElementById('node-3');
+
+    if (currentMode === 1) {
+      n1.style.display = 'flex';
+      n2.style.display = 'none';
+      n3.style.display = 'none';
+      document.getElementById('label-node-1').innerText = 'Thiết bị của bạn';
+      document.getElementById('dot-1').className = 'dot green';
+      document.getElementById('role-badge-text').innerText = 'Chế độ: 1 Người Độc Lập';
+      document.getElementById('room-badge-text').innerText = '';
+      document.getElementById('area-mode-single').style.display = 'block';
+      document.getElementById('area-classifier').style.display = 'block';
+    } else if (currentMode === 2) {
+      n1.style.display = 'flex';
+      n2.style.display = 'flex';
+      n3.style.display = 'none';
+      document.getElementById('label-node-1').innerText = 'Máy 1 (Bấm giờ)';
+      document.getElementById('label-node-2').innerText = 'Máy 2 (Phân loại)';
+      document.getElementById('role-badge-text').innerText = `Chế độ 2 Người: Bạn là MÁY ${currentRole}`;
+      document.getElementById('room-badge-text').innerText = `Phòng: ${currentRoom}`;
+
+      if (currentRole === 1) {
+        document.getElementById('area-mode2-m1').style.display = 'block';
+      } else {
+        document.getElementById('area-classifier').style.display = 'block';
+      }
+    } else {
+      n1.style.display = 'flex';
+      n2.style.display = 'flex';
+      n3.style.display = 'flex';
+      document.getElementById('label-node-1').innerText = 'Máy 1 (Mốc A)';
+      document.getElementById('label-node-2').innerText = 'Máy 2 (Mốc B)';
+      document.getElementById('label-node-3').innerText = 'Máy 3 (Phân loại)';
+      document.getElementById('role-badge-text').innerText = `Chế độ 3 Người: Bạn là MÁY ${currentRole}`;
+      document.getElementById('room-badge-text').innerText = `Phòng: ${currentRoom}`;
+
+      if (currentRole === 1) document.getElementById('area-machine-1').style.display = 'block';
+      if (currentRole === 2) document.getElementById('area-machine-2').style.display = 'block';
+      if (currentRole === 3) document.getElementById('area-classifier').style.display = 'block';
+    }
 
     renderLogsTable();
-    initMQTT();
   }
 
   function leaveRoom() {
-    if (isMeasuring) {
-      if (!confirm('Lượt đo đang diễn ra. Bạn có chắc muốn thoát phòng không?')) return;
-    }
+    if (isMeasuring && !confirm('Lượt đo đang diễn ra. Bạn có chắc muốn thoát không?')) return;
 
     stopLocalTimer();
     clearInterval(heartbeatTimer);
@@ -578,9 +696,6 @@
       client.end(true);
       client = null;
     }
-
-    localStorage.removeItem(STORAGE_KEY_ROOM);
-    localStorage.removeItem(STORAGE_KEY_ROLE);
 
     machineState = {
       1: { hasEverJoined: false, lastHeartbeat: 0 },
@@ -596,9 +711,12 @@
     document.getElementById('error-alert-box').style.display = 'none';
     document.getElementById('btn-leave-room').style.display = 'none';
     document.getElementById('role-display').style.display = 'none';
+
+    document.getElementById('area-mode-single').style.display = 'none';
+    document.getElementById('area-mode2-m1').style.display = 'none';
     document.getElementById('area-machine-1').style.display = 'none';
     document.getElementById('area-machine-2').style.display = 'none';
-    document.getElementById('area-machine-3').style.display = 'none';
+    document.getElementById('area-classifier').style.display = 'none';
 
     document.getElementById('panel-main').classList.remove('active');
     document.getElementById('panel-setup').classList.add('active');
@@ -606,7 +724,7 @@
   }
 
   function initMQTT() {
-    topic = `dovantoc/room_${currentRoom}`;
+    topic = `dovantoc/mode${currentMode}_room_${currentRoom}`;
     client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
       clientId: `${myClientId}_M${currentRole}`,
       clean: true,
@@ -614,7 +732,7 @@
     });
 
     client.on('connect', () => {
-      document.getElementById('msg-box').innerText = 'Đã vào phòng. Đang kết nối 3 máy...';
+      document.getElementById('msg-box').innerText = 'Đã vào phòng. Đang kết nối các máy...';
       client.subscribe(topic);
 
       sendMsg({
@@ -636,7 +754,6 @@
     client.on('message', (t, payload) => {
       try {
         const data = JSON.parse(payload.toString());
-        // BỎ QUA GÓI TIN CỦA CHÍNH MÁY NÀY ĐỂ TRÁNH BỊ LẶP (DUPLICATE)
         if (data.senderId === myClientId) return;
         handleData(data);
       } catch (e) {}
@@ -647,7 +764,7 @@
 
   function sendMsg(obj) {
     if (client && client.connected) {
-      obj.senderId = myClientId; // Gắn ID người gửi
+      obj.senderId = myClientId;
       client.publish(topic, JSON.stringify(obj));
     }
   }
@@ -657,11 +774,7 @@
       machineState[data.role].hasEverJoined = true;
       machineState[data.role].lastHeartbeat = Date.now();
 
-      if (data.role === 1 && data.pass) {
-        roomPassword = data.pass;
-        localStorage.setItem(STORAGE_KEY_PASS, roomPassword);
-      }
-      // Đồng bộ dữ liệu đầy đủ nếu máy khác có nhiều log hơn
+      if (data.role === 1 && data.pass) roomPassword = data.pass;
       if (data.logs && Array.isArray(data.logs) && data.logs.length > logsList.length) {
         logsList = data.logs;
         saveLogsLocally();
@@ -675,10 +788,8 @@
     } else if (data.type === 'START') {
       onRemoteStart(data.startTime);
     } else if (data.type === 'STOP') {
-      // Nhận kết quả từ máy 2 (máy 1 và 3 cùng ghi nhận chung 1 record)
       onRemoteStop(data);
     } else if (data.type === 'VEHICLE_CLASSIFIED') {
-      // Nhận phân loại từ máy 3
       onRemoteClassified(data.measureId, data.vehType);
     } else if (data.type === 'RESET') {
       executeClearData();
@@ -686,21 +797,23 @@
   }
 
   function checkOnlineStatus() {
+    if (currentMode === 1) return;
+
     machineState[currentRole].hasEverJoined = true;
     machineState[currentRole].lastHeartbeat = Date.now();
 
     const now = Date.now();
     let errorMachines = [];
+    const maxRoles = currentMode;
 
-    [1, 2, 3].forEach(roleNum => {
+    for (let roleNum = 1; roleNum <= maxRoles; roleNum++) {
       const dot = document.getElementById(`dot-${roleNum}`);
-      if (!dot) return;
+      if (!dot) continue;
 
       const state = machineState[roleNum];
       const isAlive = (now - state.lastHeartbeat) < 3500;
 
       dot.className = 'dot';
-
       if (isAlive && state.lastHeartbeat > 0) {
         dot.classList.add('green');
       } else if (state.hasEverJoined && !isAlive) {
@@ -709,17 +822,12 @@
       } else {
         dot.classList.add('yellow');
       }
-    });
+    }
 
     const alertBox = document.getElementById('error-alert-box');
-    if ([1, 2].includes(currentRole)) {
-      if (errorMachines.length > 0) {
-        const errorText = errorMachines.map(m => `MÁY ${m}`).join(', ');
-        alertBox.innerText = `⚠️ CẢNH BÁO: ${errorText} BỊ MẤT KẾT NỐI / LỖI TÍN HIỆU!`;
-        alertBox.style.display = 'block';
-      } else {
-        alertBox.style.display = 'none';
-      }
+    if (errorMachines.length > 0) {
+      alertBox.innerText = `⚠️ CẢNH BÁO: MÁY ${errorMachines.join(', ')} BỊ MẤT KẾT NỐI!`;
+      alertBox.style.display = 'block';
     } else {
       alertBox.style.display = 'none';
     }
@@ -742,7 +850,63 @@
     document.getElementById('timer-display').innerText = '00.00s';
   }
 
-  // --- MÁY 1 BẮT ĐẦU ĐO ---
+  // --- THAO TÁC CHẾ ĐỘ 1 NGƯỜI ---
+  function onSinglePersonAction() {
+    const btn = document.getElementById('btn-single-action');
+    if (!isMeasuring) {
+      const t = Date.now();
+      startLocalTimer(t);
+      btn.innerText = '⏹ DỪNG ĐO (XE RA MỐC)';
+      btn.className = 'btn-big-action btn-stop';
+      document.getElementById('msg-box').innerText = 'Đang đo thời gian...';
+    } else {
+      const stopTime = Date.now();
+      const duration = ((stopTime - measurementStartTime) / 1000).toFixed(2);
+      stopLocalTimer();
+      btn.innerText = '▶ BẮT ĐẦU ĐO (XE VÀO MỐC)';
+      btn.className = 'btn-big-action btn-start';
+
+      const measureId = 'M_' + stopTime + '_' + Math.random().toString(36).substr(2, 5);
+      processStopRecord({
+        measureId: measureId,
+        carIndex: logsList.length + 1,
+        duration: duration,
+        timestamp: stopTime
+      });
+    }
+  }
+
+  // --- THAO TÁC CHẾ ĐỘ 2 NGƯỜI (MÁY 1 ĐO & DỪNG) ---
+  function onMode2Machine1Action() {
+    const btn = document.getElementById('btn-m2-action');
+    if (!isMeasuring) {
+      const t = Date.now();
+      startLocalTimer(t);
+      btn.innerText = '⏹ DỪNG ĐO';
+      btn.className = 'btn-big-action btn-stop';
+      document.getElementById('msg-box').innerText = 'Máy 1 đã bắt đầu đo...';
+      sendMsg({ type: 'START', startTime: t });
+    } else {
+      const stopTime = Date.now();
+      const duration = ((stopTime - measurementStartTime) / 1000).toFixed(2);
+      stopLocalTimer();
+      btn.innerText = '▶ BẮT ĐẦU ĐO';
+      btn.className = 'btn-big-action btn-start';
+
+      const measureId = 'M_' + stopTime + '_' + Math.random().toString(36).substr(2, 5);
+      const recordData = {
+        measureId: measureId,
+        carIndex: logsList.length + 1,
+        duration: duration,
+        timestamp: stopTime
+      };
+
+      processStopRecord(recordData);
+      sendMsg({ type: 'STOP', ...recordData });
+    }
+  }
+
+  // --- THAO TÁC CHẾ ĐỘ 3 NGƯỜI ---
   function onMachine1Start() {
     const t = Date.now();
     startLocalTimer(t);
@@ -752,13 +916,12 @@
 
   function onRemoteStart(startTime) {
     startLocalTimer(startTime);
-    if (currentRole === 2) {
+    if (currentMode === 3 && currentRole === 2) {
       document.getElementById('btn-stop-measure').disabled = false;
     }
     document.getElementById('msg-box').innerText = 'Máy 1 đã bắt đầu đo';
   }
 
-  // --- MÁY 2 DỪNG ĐO ---
   function onMachine2Stop() {
     if (!isMeasuring) return;
     const stopTime = Date.now();
@@ -766,38 +929,27 @@
     document.getElementById('btn-stop-measure').disabled = true;
 
     stopLocalTimer();
-
-    // Sinh Mã Định Danh DUY NHẤT cho phiên đo này
     const measureId = 'M_' + stopTime + '_' + Math.random().toString(36).substr(2, 5);
-    const carIndex = logsList.length + 1;
-
     const recordData = {
       measureId: measureId,
-      carIndex: carIndex,
+      carIndex: logsList.length + 1,
       duration: duration,
       timestamp: stopTime
     };
 
-    // Máy 2 xử lý nội bộ 1 lần duy nhất
     processStopRecord(recordData);
-
-    // Gửi sang Máy 1 và Máy 3
-    sendMsg({
-      type: 'STOP',
-      ...recordData
-    });
+    sendMsg({ type: 'STOP', ...recordData });
   }
 
   function onRemoteStop(recordData) {
     stopLocalTimer();
-    if (currentRole === 2) {
+    if (currentMode === 3 && currentRole === 2) {
       document.getElementById('btn-stop-measure').disabled = true;
     }
     processStopRecord(recordData);
   }
 
   function processStopRecord(data) {
-    // Tránh trùng lặp nếu record đã tồn tại
     if (logsList.some(l => l.measureId === data.measureId)) return;
 
     const timerDisplay = document.getElementById('timer-display');
@@ -825,35 +977,37 @@
     saveLogsLocally();
     renderLogsTable();
 
-    if (currentRole === 3) {
-      document.getElementById('msg-box').innerText = 'Máy 1 và 2 đã đo xong. Vui lòng chọn loại xe';
+    // Hiển thị 3 nút phân loại xe cho đối tượng phụ trách
+    const isClassifierDevice = (currentMode === 1) || (currentMode === 2 && currentRole === 2) || (currentMode === 3 && currentRole === 3);
+
+    if (isClassifierDevice) {
+      document.getElementById('msg-box').innerText = 'Lượt đo hoàn tất! Vui lòng chọn loại xe';
       document.getElementById('veh-selector-container').style.display = 'block';
-      document.getElementById('m3-idle-screen').style.display = 'none';
+      document.getElementById('idle-screen').style.display = 'none';
     } else {
-      document.getElementById('msg-box').innerText = `Lượt đo hoàn tất: ${data.duration}s. Chờ Máy 3 phân loại xe...`;
+      document.getElementById('msg-box').innerText = `Lượt đo hoàn tất: ${data.duration}s. Chờ phân loại xe...`;
     }
   }
 
-  // --- MÁY 3 PHÂN LOẠI XE ---
   function onSelectVehicle(typeNum) {
-    // Tìm đúng xe gần nhất chưa phân loại
     const targetLog = logsList.find(l => l.vehType === null);
     if (targetLog) {
       targetLog.vehType = typeNum;
       saveLogsLocally();
       renderLogsTable();
 
-      // Đồng bộ chính xác theo measureId sang Máy 1 và Máy 2
-      sendMsg({
-        type: 'VEHICLE_CLASSIFIED',
-        measureId: targetLog.measureId,
-        vehType: typeNum
-      });
+      if (currentMode > 1) {
+        sendMsg({
+          type: 'VEHICLE_CLASSIFIED',
+          measureId: targetLog.measureId,
+          vehType: typeNum
+        });
+      }
     }
 
     document.getElementById('veh-selector-container').style.display = 'none';
-    document.getElementById('m3-idle-screen').style.display = 'block';
-    document.getElementById('msg-box').innerText = `Máy 3: Đã chọn LOẠI XE ${typeNum}. Trạng thái: Rảnh.`;
+    document.getElementById('idle-screen').style.display = 'block';
+    document.getElementById('msg-box').innerText = `Đã chọn LOẠI XE ${typeNum}. Trạng thái: Rảnh.`;
   }
 
   function onRemoteClassified(measureId, vehType) {
@@ -862,7 +1016,7 @@
       item.vehType = vehType;
       saveLogsLocally();
       renderLogsTable();
-      document.getElementById('msg-box').innerText = `Máy 3 đã chọn: Xe số ${item.carIndex} -> LOẠI XE ${vehType}`;
+      document.getElementById('msg-box').innerText = `Đã chọn: Xe số ${item.carIndex} -> LOẠI XE ${vehType}`;
     }
   }
 
@@ -894,7 +1048,7 @@
   }
 
   function saveLogsLocally() {
-    localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logsList));
+    localStorage.setItem('speed_tracker_logs_universal', JSON.stringify(logsList));
   }
 
   function openEditVehModal(measureId) {
@@ -918,11 +1072,13 @@
       saveLogsLocally();
       renderLogsTable();
 
-      sendMsg({
-        type: 'VEHICLE_CLASSIFIED',
-        measureId: log.measureId,
-        vehType: newType
-      });
+      if (currentMode > 1) {
+        sendMsg({
+          type: 'VEHICLE_CLASSIFIED',
+          measureId: log.measureId,
+          vehType: newType
+        });
+      }
     }
     closeEditModal();
   }
@@ -942,7 +1098,7 @@
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `NhatKy_DoVanToc_${currentRoom}.txt`;
+    link.download = `NhatKy_DoVanToc_${currentRoom || 'Single'}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -959,21 +1115,18 @@
 
   function confirmResetData() {
     const inputPass = document.getElementById('delete-password').value.trim();
-    if (!roomPassword) {
-      return alert('Chưa nhận được mật khẩu từ Máy 1. Vui lòng đảm bảo Máy 1 đã vào phòng!');
-    }
-    if (inputPass !== roomPassword) {
-      return alert('Mật khẩu 6 số không chính xác!');
-    }
+    if (!roomPassword) return alert('Chưa có mật khẩu bảo mật.');
+    if (inputPass !== roomPassword) return alert('Mật khẩu 6 số không chính xác!');
+
     executeClearData();
-    sendMsg({ type: 'RESET' });
+    if (currentMode > 1) sendMsg({ type: 'RESET' });
     closeResetModal();
-    alert('Đã xóa sạch dữ liệu trên cả 3 máy!');
+    alert('Đã xóa sạch dữ liệu!');
   }
 
   function executeClearData() {
     logsList = [];
-    localStorage.removeItem(STORAGE_KEY_LOGS);
+    localStorage.removeItem('speed_tracker_logs_universal');
     renderLogsTable();
     stopLocalTimer();
     document.getElementById('msg-box').innerText = 'Dữ liệu đã được đặt lại về 0.';
